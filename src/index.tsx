@@ -1288,13 +1288,21 @@ app.get('/', (c) => {
     function runRevenueForecast() {
       if (!currentDeal) return;
       const baseInput = document.getElementById('forecastBase');
-      const base = parseWanValue(baseInput ? baseInput.value : '');
-      const growth = parseFloat(document.getElementById('forecastGrowth')?.value || '0');
-      const seasonality = parseFloat(document.getElementById('forecastSeasonality')?.value || '0');
+      const rawBase = baseInput ? baseInput.value : '';
+      const typedBase = parseWanValue(rawBase);
+      const fallbackBase = parseWanValue(currentDeal.monthlyRevenue);
+      const base = typedBase > 0 ? typedBase : fallbackBase;
+
+      const growthRaw = parseFloat(document.getElementById('forecastGrowth')?.value || '0');
+      const seasonalityRaw = parseFloat(document.getElementById('forecastSeasonality')?.value || '0');
+      const growth = Number.isFinite(growthRaw) ? growthRaw : 0;
+      const seasonality = Number.isFinite(seasonalityRaw) ? seasonalityRaw : 0;
+
       if (!base || base <= 0) {
-        showToast('warning', '请输入营业额基准值', '建议输入最近3个月平均月营收（单位：万）');
+        showToast('warning', '请输入营业额基准值', '建议输入最近3个月平均月营收（单位：万），例如 120.5');
         return;
       }
+      if (baseInput && typedBase <= 0 && fallbackBase > 0) baseInput.value = String(fallbackBase);
       const predicted = Math.max(1, base * (1 + growth / 100) * (1 + seasonality / 100));
       const shareRatio = parseFloat(String(currentDeal.revenueShare || '').replace('%', '')) / 100 || 0.1;
       const monthlyPayback = predicted * shareRatio;
