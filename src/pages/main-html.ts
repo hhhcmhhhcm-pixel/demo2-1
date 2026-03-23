@@ -700,21 +700,6 @@ export const MAIN_HTML = `
     </div>
   </div>
 
-  <!-- ==================== AI Assistant FAB ==================== -->
-  <div id="aiFab" class="ai-assistant-fab hidden" onclick="toggleAIChat()"><i class="fas fa-robot"></i></div>
-  <div id="aiChat" class="ai-chat-window hidden">
-    <div class="ai-chat-header"><div class="flex items-center space-x-2"><i class="fas fa-robot text-white"></i><span class="text-white font-semibold text-sm">Deal Connect AI 助手</span></div><button onclick="toggleAIChat()" class="text-white/80 hover:text-white"><i class="fas fa-times"></i></button></div>
-    <div class="ai-chat-messages" id="aiMessages">
-      <div class="ai-message assistant"><div class="ai-message-avatar"><i class="fas fa-robot"></i></div><div class="ai-message-content">您好！我是参与通AI助手。您可以问我关于筛子模型、项目评估、参与流程等问题。</div></div>
-    </div>
-    <div class="ai-chat-input" style="padding:16px; border-top:1px solid #f1f5f9;">
-      <div class="flex items-center gap-2">
-        <input type="text" id="aiInput" placeholder="例如：哪个筛子适合我？" class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm" onkeydown="if(event.key==='Enter')sendAIMsg()">
-        <button onclick="sendAIMsg()" class="btn-primary px-3 py-2 rounded-xl text-sm"><i class="fas fa-paper-plane"></i></button>
-      </div>
-    </div>
-  </div>
-
   <!-- ==================== JavaScript ==================== -->
   <script src="/static/js/state.js"></script>
   <script src="/static/js/shared.js"></script>
