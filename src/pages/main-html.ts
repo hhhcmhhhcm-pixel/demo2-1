@@ -242,10 +242,10 @@ export const MAIN_HTML = `
 
         <!-- Stats Grid -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          <div class="stat-card animate-fade-in cursor-pointer" onclick="selectSieve('all')">
+          <div class="stat-card animate-fade-in cursor-pointer" onclick="showAllDeals()">
             <div class="flex items-center justify-between"><div><p class="stat-label">全部机会</p><p class="stat-value" id="statTotal">0</p><p class="text-xs text-gray-400 mt-0.5">来自发起通</p></div><div class="icon-container icon-container-sm" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 12px rgba(245,158,11,0.3);"><i class="fas fa-paper-plane text-white text-sm"></i></div></div>
           </div>
-          <div class="stat-card investor-only animate-fade-in delay-100 cursor-pointer" onclick="selectSieve('all')">
+          <div class="stat-card investor-only animate-fade-in delay-100 cursor-pointer" onclick="showAllDeals()">
             <div class="flex items-center justify-between"><div><p class="stat-label">筛后通过</p><p class="stat-value" id="statFiltered">0</p><p class="text-xs text-gray-400 mt-0.5">当前筛子匹配</p></div><div class="icon-container icon-container-sm" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); box-shadow: 0 4px 12px rgba(6,182,212,0.3);"><i class="fas fa-filter text-white text-sm"></i></div></div>
           </div>
           <div class="stat-card animate-fade-in delay-200 cursor-pointer" onclick="filterByStatus('interested')">

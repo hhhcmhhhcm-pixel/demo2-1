@@ -6,8 +6,9 @@
       const filterVal = document.getElementById('filterStatus')?.value || 'all';
       const industryVal = document.getElementById('filterIndustry')?.value || 'all';
       const sortVal = document.getElementById('sortBy')?.value || 'push_desc';
+      const scopedDeals = currentPerspective === 'financer' ? dealsList.slice(0, 2) : dealsList;
 
-      let filtered = dealsList.filter(d => {
+      let filtered = scopedDeals.filter(d => {
         if (industryVal !== 'all' && d.industry !== industryVal) return false;
         if (filterVal === 'skipped' && !d.skipped) return false;
         if (filterVal !== 'all' && filterVal !== 'skipped' && d.status !== filterVal) return false;
@@ -28,12 +29,9 @@
         if (sortVal === 'amount_asc') return a.amount - b.amount;
         return (new Date(b.originateDate).getTime()) - (new Date(a.originateDate).getTime());
       });
-      if (currentPerspective === 'financer') {
-        filtered = filtered.slice(0, 2);
-      }
 
       // Update stats
-      const totalCount = currentPerspective === 'financer' ? filtered.length : allDeals.length;
+      const totalCount = currentPerspective === 'financer' ? scopedDeals.length : allDeals.length;
       document.getElementById('statTotal').textContent = String(totalCount);
       document.getElementById('statFiltered').textContent = dealsList.length;
       document.getElementById('statInterested').textContent = allDeals.filter(d => d.status === 'interested').length;
@@ -112,9 +110,22 @@
       }).join('');
     }
 
+    function showAllDeals() {
+      const statusSel = document.getElementById('filterStatus');
+      if (statusSel) statusSel.value = 'all';
+      const industrySel = document.getElementById('filterIndustry');
+      if (industrySel) industrySel.value = 'all';
+      const searchInput = document.getElementById('dealSearch');
+      if (searchInput) searchInput.value = '';
+      selectSieve('all');
+    }
+
     function filterByStatus(status) {
       const sel = document.getElementById('filterStatus');
-      if (sel) { sel.value = status; renderDeals(); }
+      if (sel) {
+        sel.value = sel.value === status ? 'all' : status;
+        renderDeals();
+      }
     }
 
     function toggleIntent(id) {
