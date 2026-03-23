@@ -511,7 +511,7 @@ app.get('/', (c) => {
         <!-- 标题 -->
         <div class="bg-white rounded-2xl border border-gray-100 p-5">
           <h3 class="text-base font-bold text-gray-900 mb-2"><i class="fas fa-chart-line mr-2 text-teal-600"></i>营业额预估工作台</h3>
-          <p class="text-sm text-gray-500">汇聚系统预估与融资方预估，支持自行填写，产出月均营业额供条款工作台使用。</p>
+          <p class="text-sm text-gray-500">汇聚模型预估与融资方预估，支持自行填写，产出月均营业额供条款工作台使用。</p>
         </div>
 
         <!-- 可视化走势对比图 -->
@@ -525,10 +525,10 @@ app.get('/', (c) => {
             </div>
           </div>
           <div class="flex items-center gap-4 mb-3 text-[10px]">
-            <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded" style="background:#14b8a6;"></span>系统预估</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded" style="background:#94a3b8;"></span>历史实际</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded" style="background:#14b8a6;"></span>模型预估</span>
             <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded" style="background:#0ea5e9;"></span>融资方预估</span>
             <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded" style="background:#f59e0b;"></span>我的填写</span>
-            <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded dashed" style="border-bottom:2px dashed #94a3b8;width:12px;height:0;"></span>历史实际</span>
           </div>
           <div id="fcChartContainer" class="h-48 relative overflow-hidden rounded-lg bg-gray-50 border border-gray-100 p-3">
             <div class="text-center py-12 text-gray-400"><i class="fas fa-chart-area text-3xl mb-2 opacity-40"></i><p class="text-sm">选择项目后展示走势图</p></div>
@@ -536,16 +536,16 @@ app.get('/', (c) => {
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <!-- 系统预估（只读） -->
+          <!-- 模型预估（只读） -->
           <div class="bg-white rounded-2xl border border-gray-100 p-4">
             <div class="flex items-center justify-between mb-3">
-              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-robot mr-1.5 text-teal-500"></i>系统平推预估</h4>
+              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-robot mr-1.5 text-teal-500"></i>模型预估</h4>
               <span class="text-[10px] px-2 py-0.5 rounded bg-teal-50 text-teal-600">只读 · 5年</span>
             </div>
             <div id="fcSystemInfo" class="space-y-2">
               <p class="text-xs text-gray-400">选择项目后显示</p>
             </div>
-            <button onclick="applyForecastToWb('system')" class="w-full mt-3 px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700"><i class="fas fa-check mr-1"></i>采用系统预估</button>
+            <button onclick="applyForecastToWb('system')" class="w-full mt-3 px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700"><i class="fas fa-check mr-1"></i>采用模型预估</button>
           </div>
 
           <!-- 融资方预估（只读） -->
@@ -600,7 +600,7 @@ app.get('/', (c) => {
         <div class="bg-white rounded-2xl border border-gray-100 p-4">
           <div class="flex items-center justify-between">
             <div>
-              <span class="text-sm font-bold text-gray-800"><i class="fas fa-check-circle mr-1.5 text-teal-500"></i>当前带入条款工作台的值</span>
+              <span class="text-sm font-bold text-gray-800"><i class="fas fa-check-circle mr-1.5 text-teal-500"></i>当前所选预估方案月均营业额</span>
               <span id="fcSelectedValue" class="ml-2 text-sm font-bold text-teal-600">未选择</span>
               <span id="fcSelectedSource" class="ml-1 text-xs text-gray-400"></span>
             </div>
@@ -655,7 +655,7 @@ app.get('/', (c) => {
               <div>
                 <label class="block text-xs text-gray-500 mb-1">预测月均营业额来源</label>
                 <select id="wbRevenueSource" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" onchange="updateWorkbenchAndRecalc()">
-                  <option value="system">系统预估</option>
+                  <option value="system">模型预估</option>
                   <option value="borrower">融资方预估</option>
                   <option value="self">自行填写</option>
                   <option value="research">做功课预估</option>
