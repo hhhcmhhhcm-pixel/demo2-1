@@ -1,4 +1,4 @@
-import type { Hono } from 'hono'
+import { Hono } from 'hono'
 
 type UserRecord = {
   id: string
@@ -27,8 +27,9 @@ function toPublicUser(user: UserRecord) {
   return publicUser
 }
 
-export function registerAuthRoutes(app: Hono) {
-  app.post('/api/auth/register', async (c) => {
+export const authRoutes = new Hono()
+
+authRoutes.post('/register', async (c) => {
     const { username, email, password, displayName, phone, role } = await c.req.json<AuthPayload>()
 
     if (!username || !email || !password) {
@@ -53,9 +54,9 @@ export function registerAuthRoutes(app: Hono) {
 
     users.set(username, user)
     return c.json({ success: true, user: toPublicUser(user), message: '注册成功' })
-  })
+})
 
-  app.post('/api/auth/login', async (c) => {
+authRoutes.post('/login', async (c) => {
     const { username, password } = await c.req.json<AuthPayload>()
 
     if (!username || !password) {
@@ -68,8 +69,7 @@ export function registerAuthRoutes(app: Hono) {
     }
 
     return c.json({ success: true, user: toPublicUser(user), message: '登录成功' })
-  })
+})
 
-  app.post('/api/auth/logout', (c) => c.json({ success: true, message: '已安全退出' }))
-  app.get('/api/auth/me', (c) => c.json({ success: true, user: null }))
-}
+authRoutes.post('/logout', (c) => c.json({ success: true, message: '已安全退出' }))
+authRoutes.get('/me', (c) => c.json({ success: true, user: null }))
