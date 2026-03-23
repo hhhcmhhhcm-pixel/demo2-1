@@ -2,16 +2,14 @@
 
     // ---- Mock data generators ----
     function generateSystemForecast(deal) {
-      // 系统平推预估：基于历史月均营收，按星期/节假日分组拟合趋势，产出未来10年逐月数据
+      // 系统平推预估：基于历史月均营收，按星期/节假日分组拟合趋势，产出未来5年逐月数据
       const baseRevenue = parseWanValue(deal.monthlyRevenue) || 120;
-      const monthlyGrowthRate = 0.003; // ~3.7% annual
+      const monthlyGrowthRate = 0.003;
       const months = [];
-      for (let i = 0; i < 120; i++) { // 10 years = 120 months
+      for (let i = 0; i < 60; i++) {
         const yearIdx = Math.floor(i / 12);
         const monthInYear = i % 12;
-        // 轻微季节波动
         const seasonFactor = 1 + 0.08 * Math.sin((monthInYear - 2) * Math.PI / 6);
-        // 逐年增长放缓
         const growthFactor = Math.pow(1 + monthlyGrowthRate, i) * (1 - yearIdx * 0.002);
         months.push(Math.max(1, +(baseRevenue * growthFactor * seasonFactor).toFixed(1)));
       }
@@ -19,12 +17,12 @@
     }
 
     function generateBorrowerForecast(deal) {
-      // 融资方上传预估：3年逐月数据，通常比系统预估乐观
+      // 融资方上传预估：仅3年36个月数据
       const baseRevenue = parseWanValue(deal.monthlyRevenue) || 120;
-      const optimismFactor = 1.12; // 融资方偏乐观
-      const monthlyGrowthRate = 0.005; // ~6.2% annual
+      const optimismFactor = 1.12;
+      const monthlyGrowthRate = 0.005;
       const months = [];
-      for (let i = 0; i < 36; i++) { // 3 years = 36 months
+      for (let i = 0; i < 36; i++) {
         const monthInYear = i % 12;
         const seasonFactor = 1 + 0.06 * Math.sin((monthInYear - 1) * Math.PI / 6);
         const growthFactor = Math.pow(1 + monthlyGrowthRate, i);
@@ -49,11 +47,11 @@
       forecastByDeal[deal.id] = {
         systemMonthly: generateSystemForecast(deal),
         borrowerMonthly: generateBorrowerForecast(deal),
-        selfMode: 'quick', // quick | monthly | yearly
+        selfMode: 'quick',
         selfQuickValue: null,
-        selfMonthly: {}, // { "2026": [m1,m2,...m12], ... }
-        selfYearly: {}, // { "2026": val, "2027": val, ... }
-        selectedSource: null, // system | borrower | self
+        selfMonthly: {},
+        selfYearly: {},
+        selectedSource: null,
         selectedValue: null
       };
       saveForecastState();
@@ -82,7 +80,7 @@
       const data = state.systemMonthly;
       const avg1y = data.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
       const avg3y = data.slice(0, 36).reduce((a, b) => a + b, 0) / 36;
-      const avg10y = data.reduce((a, b) => a + b, 0) / data.length;
+      const avg5y = data.reduce((a, b) => a + b, 0) / data.length;
       const min = Math.min(...data);
       const max = Math.max(...data);
       el.innerHTML =
@@ -93,9 +91,9 @@
         '</div>' +
         '<div class="grid grid-cols-2 gap-2">' +
           '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">3年均值</p><p class="text-xs font-bold text-gray-700">' + avg3y.toFixed(1) + '万</p></div>' +
-          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">10年均值</p><p class="text-xs font-bold text-gray-700">' + avg10y.toFixed(1) + '万</p></div>' +
+          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">5年均值</p><p class="text-xs font-bold text-gray-700">' + avg5y.toFixed(1) + '万</p></div>' +
           '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">波动区间</p><p class="text-xs font-bold text-gray-700">' + min.toFixed(0) + '-' + max.toFixed(0) + '万</p></div>' +
-          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">数据覆盖</p><p class="text-xs font-bold text-gray-700">120个月</p></div>' +
+          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">数据覆盖</p><p class="text-xs font-bold text-gray-700">60个月</p></div>' +
         '</div>' +
         '<p class="text-[10px] text-gray-400 mt-1">模型：按星期+节假日分组拟合趋势，系统自动生成，不可编辑。</p>';
     }
@@ -129,11 +127,9 @@
       fcInputMode = state.selfMode || 'quick';
       setFcInputMode(fcInputMode);
 
-      // Quick value
       const quickEl = document.getElementById('fcQuickValue');
       if (quickEl && state.selfQuickValue) quickEl.value = String(state.selfQuickValue);
 
-      // Year selector for monthly
       renderFcMonthlyYearSelector();
       renderFcMonthlyInputs();
       renderFcYearlyInputs();
@@ -169,6 +165,24 @@
       }
     }
 
+    // Bug fix #3: 切换年份前先保存当前年份的输入到 state
+    function saveCurrentMonthlyToState() {
+      if (!currentDeal) return;
+      const state = ensureForecastState(currentDeal);
+      const inputs = document.querySelectorAll('.fc-monthly-input');
+      if (inputs.length === 0) return;
+      const year = inputs[0]?.dataset?.year;
+      if (!year) return;
+      const monthData = [];
+      inputs.forEach(inp => {
+        const v = parseWanValue(inp.value);
+        monthData.push(v > 0 ? v : 0);
+      });
+      if (!state.selfMonthly) state.selfMonthly = {};
+      state.selfMonthly[year] = monthData;
+      saveForecastState();
+    }
+
     function renderFcMonthlyInputs() {
       const grid = document.getElementById('fcMonthlyGrid');
       const yearSel = document.getElementById('fcMonthlyYear');
@@ -187,6 +201,12 @@
             ' class="fc-monthly-input w-full px-1.5 py-1 border border-gray-200 rounded text-[11px] text-center">' +
           '</div>';
       }
+    }
+
+    function onFcMonthlyYearChange() {
+      // 切换年份前先保存当前 DOM 中的输入
+      saveCurrentMonthlyToState();
+      renderFcMonthlyInputs();
     }
 
     function renderFcYearlyInputs() {
@@ -209,7 +229,6 @@
     }
 
     function onFcQuickInput() {
-      // Live preview update
       if (!currentDeal) return;
       const val = parseWanValue(document.getElementById('fcQuickValue')?.value);
       if (val > 0) {
@@ -236,17 +255,20 @@
         state.selfQuickValue = val;
         avgValue = val;
       } else if (fcInputMode === 'monthly') {
-        const year = document.getElementById('fcMonthlyYear')?.value;
-        const inputs = document.querySelectorAll('.fc-monthly-input');
-        const monthData = [];
-        inputs.forEach(inp => {
-          const v = parseWanValue(inp.value);
-          monthData.push(v > 0 ? v : 0);
-        });
+        // 先保存当前年份DOM中的数据
+        saveCurrentMonthlyToState();
+        // 计算所有已填写年份的总均值
         if (!state.selfMonthly) state.selfMonthly = {};
-        state.selfMonthly[year] = monthData;
-        const filled = monthData.filter(v => v > 0);
-        avgValue = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) / filled.length : 0;
+        let total = 0, count = 0;
+        Object.keys(state.selfMonthly).forEach(yr => {
+          const arr = state.selfMonthly[yr];
+          if (arr) {
+            arr.forEach(v => {
+              if (v > 0) { total += v; count++; }
+            });
+          }
+        });
+        avgValue = count > 0 ? total / count : 0;
         if (avgValue <= 0) {
           showToast('warning', '请至少填写一个月的数据', '');
           return;
@@ -273,7 +295,6 @@
       state.selectedValue = +avgValue.toFixed(1);
       saveForecastState();
 
-      // Also save to researchInputsByDeal for workbench compatibility
       researchInputsByDeal[currentDeal.id] = {
         predictedMonthlyRevenue: avgValue,
         paybackMonths: 0
@@ -286,7 +307,7 @@
     // ---- Chart rendering ----
     function setFcChartRange(range) {
       fcChartRange = range;
-      ['1y', '3y', '10y'].forEach(r => {
+      ['1y', '3y', '5y'].forEach(r => {
         const btn = document.getElementById('fcRange' + r);
         if (btn) {
           btn.classList.toggle('bg-teal-50', r === range);
@@ -297,64 +318,109 @@
       if (currentDeal) renderFcChart(ensureForecastState(currentDeal));
     }
 
-    function buildSelfData(state, rangeMonths) {
-      let selfData = [];
-      if (state.selfMode === 'monthly' && state.selfMonthly) {
-        const currentYear = new Date().getFullYear();
-        for (let i = 0; i < rangeMonths; i++) {
-          const y = String(currentYear + Math.floor(i / 12));
-          const m = i % 12;
-          const arr = state.selfMonthly[y];
-          selfData.push((arr && arr[m] > 0) ? arr[m] : 0);
-        }
-      } else if (state.selfMode === 'yearly' && state.selfYearly) {
-        const currentYear = new Date().getFullYear();
-        for (let i = 0; i < rangeMonths; i++) {
-          const y = String(currentYear + Math.floor(i / 12));
-          selfData.push(state.selfYearly[y] || 0);
-        }
-      } else if (state.selfQuickValue && state.selfQuickValue > 0) {
-        selfData = new Array(rangeMonths).fill(state.selfQuickValue);
+    // 构建自行填写数据——只返回实际有值的数据点，不补零
+    function buildSelfDataPoints(state) {
+      const currentYear = new Date().getFullYear();
+      const points = []; // [{monthIdx, value}]
+
+      if (state.selfMode === 'quick' && state.selfQuickValue > 0) {
+        // 快捷模式：单一水平线，不限定长度，走势图按实际数据范围展示
+        // 返回一个特殊标记
+        return { type: 'flat', value: state.selfQuickValue };
       }
-      return selfData;
+
+      if (state.selfMode === 'monthly' && state.selfMonthly) {
+        Object.keys(state.selfMonthly).sort().forEach(yr => {
+          const arr = state.selfMonthly[yr];
+          if (!arr) return;
+          const yearOffset = (parseInt(yr) - currentYear) * 12;
+          arr.forEach((v, m) => {
+            if (v > 0) points.push({ monthIdx: yearOffset + m, value: v });
+          });
+        });
+      }
+
+      if (state.selfMode === 'yearly' && state.selfYearly) {
+        Object.keys(state.selfYearly).sort().forEach(yr => {
+          const v = state.selfYearly[yr];
+          if (v > 0) {
+            const yearOffset = (parseInt(yr) - currentYear) * 12;
+            // 展开为12个月同一值
+            for (let m = 0; m < 12; m++) {
+              points.push({ monthIdx: yearOffset + m, value: v });
+            }
+          }
+        });
+      }
+
+      if (points.length === 0) return null;
+      return { type: 'points', data: points };
     }
 
     function renderFcChart(state) {
       const container = document.getElementById('fcChartContainer');
       if (!container || !state) return;
 
-      const rangeMonths = fcChartRange === '1y' ? 12 : fcChartRange === '3y' ? 36 : 120;
-      const sysData = state.systemMonthly.slice(0, rangeMonths);
-      const borData = state.borrowerMonthly.slice(0, Math.min(rangeMonths, 36));
-      const selfData = buildSelfData(state, rangeMonths);
-      const hasSelf = selfData.some(v => v > 0);
+      const rangeMonths = fcChartRange === '1y' ? 12 : fcChartRange === '3y' ? 36 : 60;
 
-      // Find max/min for scaling
-      const allVals = [...sysData, ...borData, ...(hasSelf ? selfData : [])].filter(v => v > 0);
-      const maxVal = allVals.length > 0 ? Math.max(...allVals) * 1.08 : 100;
-      const minVal = allVals.length > 0 ? Math.min(...allVals) * 0.92 : 0;
+      // 系统数据：截取到视距范围，但不超过实际数据长度
+      const sysData = state.systemMonthly.slice(0, Math.min(rangeMonths, state.systemMonthly.length));
+      // 融资方数据：只有实际的36个月，不补数据
+      const borData = state.borrowerMonthly.slice(0, Math.min(rangeMonths, state.borrowerMonthly.length));
+      // 自行填写数据
+      const selfResult = buildSelfDataPoints(state);
+
+      // 收集所有值用于计算Y轴范围
+      const allVals = [...sysData, ...borData];
+      if (selfResult) {
+        if (selfResult.type === 'flat') {
+          allVals.push(selfResult.value);
+        } else {
+          selfResult.data.forEach(p => { if (p.monthIdx < rangeMonths) allVals.push(p.value); });
+        }
+      }
+      const filtered = allVals.filter(v => v > 0);
+      const maxVal = filtered.length > 0 ? Math.max(...filtered) * 1.08 : 100;
+      const minVal = filtered.length > 0 ? Math.min(...filtered) * 0.92 : 0;
       const valRange = maxVal - minVal || 1;
 
-      // SVG dimensions — use wide viewBox for proper aspect ratio
+      // SVG dimensions
       const svgW = 800;
       const svgH = 180;
-      const padL = 50; // left padding for Y-axis labels
+      const padL = 50;
       const padR = 10;
       const padT = 10;
-      const padB = 30; // bottom padding for X-axis labels
+      const padB = 30;
       const plotW = svgW - padL - padR;
       const plotH = svgH - padT - padB;
 
-      function toX(i, total) { return padL + (total > 1 ? (i / (total - 1)) * plotW : plotW / 2); }
+      // 所有线段使用统一的X轴：rangeMonths为总格数
+      function toX(monthIdx) { return padL + (rangeMonths > 1 ? (monthIdx / (rangeMonths - 1)) * plotW : plotW / 2); }
       function toY(v) { return padT + plotH - ((v - minVal) / valRange) * plotH; }
 
-      function polyline(data, color) {
+      // 画折线：data是数组，每个元素对应monthIdx 0,1,2,...
+      function polylineFromArray(data, color) {
         if (!data || data.length === 0) return '';
-        const pts = data.map((v, i) => toX(i, data.length).toFixed(1) + ',' + toY(v).toFixed(1)).join(' ');
+        const pts = data.map((v, i) => toX(i).toFixed(1) + ',' + toY(v).toFixed(1)).join(' ');
         return '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" />';
       }
 
-      // Y-axis grid lines + labels (5 ticks)
+      // 画折线：从points数组 [{monthIdx, value}]
+      function polylineFromPoints(points, color) {
+        if (!points || points.length === 0) return '';
+        const visible = points.filter(p => p.monthIdx < rangeMonths);
+        if (visible.length === 0) return '';
+        const pts = visible.map(p => toX(p.monthIdx).toFixed(1) + ',' + toY(p.value).toFixed(1)).join(' ');
+        return '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" />';
+      }
+
+      // 画水平线
+      function flatLine(value, color) {
+        const y = toY(value).toFixed(1);
+        return '<line x1="' + padL + '" y1="' + y + '" x2="' + (svgW - padR) + '" y2="' + y + '" stroke="' + color + '" stroke-width="2" stroke-dasharray="6,4" />';
+      }
+
+      // Y-axis grid lines + labels
       let gridAndYLabels = '';
       for (let t = 0; t <= 4; t++) {
         const val = minVal + (valRange * t / 4);
@@ -364,39 +430,61 @@
           '<text x="' + (padL - 6) + '" y="' + (parseFloat(y) + 4) + '" font-size="11" fill="#9ca3af" text-anchor="end" font-family="Inter,sans-serif">' + val.toFixed(0) + '</text>';
       }
 
-      // X-axis labels
+      // X-axis labels — 与现实时间联动
       let xLabels = '';
-      const currentYear = new Date().getFullYear();
-      const labelPositions = [];
+      const now = new Date();
+      const baseYear = now.getFullYear();
+      const baseMonth = now.getMonth(); // 0-indexed
 
       if (rangeMonths <= 12) {
-        for (let i = 0; i < 12; i += 1) {
-          labelPositions.push({ i: i, label: (i + 1) + '月' });
+        for (let i = 0; i < rangeMonths; i++) {
+          const m = (baseMonth + i) % 12;
+          const y = baseYear + Math.floor((baseMonth + i) / 12);
+          const x = toX(i).toFixed(1);
+          xLabels += '<text x="' + x + '" y="' + (svgH - 6) + '" font-size="11" fill="#9ca3af" text-anchor="middle" font-family="Inter,sans-serif">' + (m + 1) + '月</text>';
         }
       } else if (rangeMonths <= 36) {
-        for (let i = 0; i < 36; i += 3) {
-          const yr = currentYear + Math.floor(i / 12);
-          labelPositions.push({ i: i, label: yr + '/' + (i % 12 + 1) });
+        for (let i = 0; i < rangeMonths; i += 3) {
+          const m = (baseMonth + i) % 12;
+          const y = baseYear + Math.floor((baseMonth + i) / 12);
+          const x = toX(i).toFixed(1);
+          xLabels += '<text x="' + x + '" y="' + (svgH - 6) + '" font-size="11" fill="#9ca3af" text-anchor="middle" font-family="Inter,sans-serif">' + y + '/' + (m + 1) + '</text>';
         }
       } else {
-        for (let i = 0; i < 120; i += 12) {
-          labelPositions.push({ i: i, label: String(currentYear + i / 12) });
+        for (let i = 0; i < rangeMonths; i += 6) {
+          const m = (baseMonth + i) % 12;
+          const y = baseYear + Math.floor((baseMonth + i) / 12);
+          const x = toX(i).toFixed(1);
+          xLabels += '<text x="' + x + '" y="' + (svgH - 6) + '" font-size="11" fill="#9ca3af" text-anchor="middle" font-family="Inter,sans-serif">' + y + '/' + (m + 1) + '</text>';
         }
       }
 
-      labelPositions.forEach(lp => {
-        const x = toX(lp.i, rangeMonths).toFixed(1);
-        xLabels += '<text x="' + x + '" y="' + (svgH - 6) + '" font-size="11" fill="#9ca3af" text-anchor="middle" font-family="Inter,sans-serif">' + lp.label + '</text>';
-      });
+      // 自行填写线
+      let selfLine = '';
+      if (selfResult) {
+        if (selfResult.type === 'flat') {
+          selfLine = flatLine(selfResult.value, '#f59e0b');
+        } else {
+          selfLine = polylineFromPoints(selfResult.data, '#f59e0b');
+        }
+      }
 
-      // Hover tooltip area (invisible rects for each data point)
+      // Hover tooltip
       let tooltipAreas = '';
       const barW = Math.max(4, plotW / rangeMonths);
       for (let i = 0; i < rangeMonths; i++) {
-        const x = toX(i, rangeMonths) - barW / 2;
-        const sysVal = sysData[i] !== undefined ? sysData[i].toFixed(1) : '--';
+        const x = toX(i) - barW / 2;
+        const sysVal = i < sysData.length ? sysData[i].toFixed(1) : '--';
         const borVal = i < borData.length ? borData[i].toFixed(1) : '--';
-        const selfVal = (hasSelf && selfData[i] > 0) ? selfData[i].toFixed(1) : '--';
+        let selfVal = '--';
+        if (selfResult) {
+          if (selfResult.type === 'flat') {
+            selfVal = selfResult.value.toFixed(1);
+          } else {
+            const pt = selfResult.data.find(p => p.monthIdx === i);
+            if (pt) selfVal = pt.value.toFixed(1);
+          }
+        }
         tooltipAreas +=
           '<rect x="' + x.toFixed(1) + '" y="' + padT + '" width="' + barW.toFixed(1) + '" height="' + plotH + '" fill="transparent" class="fc-hover-rect"' +
           ' data-sys="' + sysVal + '" data-bor="' + borVal + '" data-self="' + selfVal + '" />';
@@ -405,15 +493,15 @@
       container.innerHTML =
         '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" class="w-full h-full" style="overflow:visible;">' +
           gridAndYLabels +
-          polyline(sysData, '#14b8a6') +
-          polyline(borData, '#0ea5e9') +
-          (hasSelf ? polyline(selfData.filter(v => v > 0).length === selfData.length ? selfData : selfData.map(v => v > 0 ? v : null).filter(v => v), '#f59e0b') : '') +
+          polylineFromArray(sysData, '#14b8a6') +
+          polylineFromArray(borData, '#0ea5e9') +
+          selfLine +
           xLabels +
           tooltipAreas +
         '</svg>' +
         '<div id="fcTooltip" class="hidden absolute bg-gray-800 text-white text-[10px] rounded-lg px-2 py-1.5 pointer-events-none shadow-lg z-10" style="white-space:nowrap;"></div>';
 
-      // Add hover listeners
+      // Hover listeners
       container.querySelectorAll('.fc-hover-rect').forEach(rect => {
         rect.addEventListener('mouseenter', function(e) {
           const tip = document.getElementById('fcTooltip');
@@ -427,9 +515,9 @@
         rect.addEventListener('mousemove', function(e) {
           const tip = document.getElementById('fcTooltip');
           if (!tip) return;
-          const rect = container.getBoundingClientRect();
-          tip.style.left = (e.clientX - rect.left + 12) + 'px';
-          tip.style.top = (e.clientY - rect.top - 10) + 'px';
+          const cr = container.getBoundingClientRect();
+          tip.style.left = (e.clientX - cr.left + 12) + 'px';
+          tip.style.top = (e.clientY - cr.top - 10) + 'px';
         });
         rect.addEventListener('mouseleave', function() {
           const tip = document.getElementById('fcTooltip');
@@ -443,7 +531,6 @@
       const valEl = document.getElementById('fcSelectedValue');
       const srcEl = document.getElementById('fcSelectedSource');
       if (!valEl || !srcEl) return;
-
       if (state.selectedValue && state.selectedSource) {
         valEl.textContent = state.selectedValue.toFixed(1) + '万/月';
         const sourceLabels = { system: '系统预估', borrower: '融资方预估', self: '自行填写' };
@@ -474,21 +561,18 @@
           return;
         }
       }
-
       if (value <= 0) return;
 
       state.selectedSource = source;
       state.selectedValue = +value.toFixed(1);
       saveForecastState();
 
-      // Save to researchInputsByDeal for workbench compatibility
       researchInputsByDeal[currentDeal.id] = {
         predictedMonthlyRevenue: value,
         paybackMonths: 0
       };
       saveResearchInputs();
 
-      // Apply to workbench
       currentDeal.forecastMonthlyRevenue = value.toFixed(1) + '万/月';
       const original = allDeals.find(d => d.id === currentDeal.id);
       if (original) original.forecastMonthlyRevenue = currentDeal.forecastMonthlyRevenue;

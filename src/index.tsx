@@ -519,9 +519,9 @@ app.get('/', (c) => {
           <div class="flex items-center justify-between mb-3">
             <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-chart-area mr-1.5 text-cyan-500"></i>走势对比图</h4>
             <div class="flex gap-2">
-              <button onclick="setFcChartRange('1y')" id="fcRange1y" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700">1年</button>
-              <button onclick="setFcChartRange('3y')" id="fcRange3y" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-500">3年</button>
-              <button onclick="setFcChartRange('10y')" id="fcRange10y" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-500">10年</button>
+              <button onclick="setFcChartRange('1y')" id="fcRange1y" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700">近1年</button>
+              <button onclick="setFcChartRange('3y')" id="fcRange3y" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-500">近3年</button>
+              <button onclick="setFcChartRange('5y')" id="fcRange5y" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-500">近5年</button>
             </div>
           </div>
           <div class="flex items-center gap-4 mb-3 text-[10px]">
@@ -540,7 +540,7 @@ app.get('/', (c) => {
           <div class="bg-white rounded-2xl border border-gray-100 p-4">
             <div class="flex items-center justify-between mb-3">
               <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-robot mr-1.5 text-teal-500"></i>系统平推预估</h4>
-              <span class="text-[10px] px-2 py-0.5 rounded bg-teal-50 text-teal-600">只读 · 10年</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-teal-50 text-teal-600">只读 · 5年</span>
             </div>
             <div id="fcSystemInfo" class="space-y-2">
               <p class="text-xs text-gray-400">选择项目后显示</p>
@@ -582,7 +582,7 @@ app.get('/', (c) => {
               <div id="fcInputMonthly" class="hidden">
                 <div class="flex items-center justify-between mb-1">
                   <label class="text-xs text-gray-500">逐月营业额（万）</label>
-                  <select id="fcMonthlyYear" class="text-[11px] px-2 py-0.5 border border-gray-200 rounded bg-white" onchange="renderFcMonthlyInputs()"></select>
+                  <select id="fcMonthlyYear" class="text-[11px] px-2 py-0.5 border border-gray-200 rounded bg-white" onchange="onFcMonthlyYearChange()"></select>
                 </div>
                 <div id="fcMonthlyGrid" class="grid grid-cols-4 gap-1.5"></div>
               </div>
