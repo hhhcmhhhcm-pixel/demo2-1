@@ -4,6 +4,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint:static-js": "node scripts/check-static-js.mjs",
+    "lint": "npm run lint:static-js",
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "hooks:install": "git config core.hooksPath .githooks && chmod +x .githooks/pre-commit",
     "preview": "wrangler pages dev",
     "deploy": "npm run build && wrangler pages deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
@@ -14,6 +19,7 @@
   "devDependencies": {
     "@hono/vite-build": "^1.2.0",
     "@hono/vite-dev-server": "^0.18.2",
+    "typescript": "^5.9.3",
     "vite": "^6.3.5",
     "wrangler": "^4.4.0"
   }

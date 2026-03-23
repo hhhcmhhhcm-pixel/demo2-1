@@ -55,10 +55,22 @@
 ## Project Structure
 ```
 ├── src/
-│   └── index.tsx          # Main Hono app (backend + SPA HTML)
+│   ├── index.tsx          # Main Hono app entry (route assembly)
+│   ├── pages/
+│   │   └── main-html.ts   # SPA HTML template
+│   └── routes/
+│       ├── auth.ts        # Auth API routes
+│       ├── deals.ts       # Deal API routes
+│       └── pages.ts       # Page and favicon routes
 ├── public/
 │   └── static/
-│       └── style.css      # Custom CSS styles
+│       ├── base.css       # Base page styles (extracted)
+│       ├── style.css      # Custom CSS styles
+│       └── js/            # Frontend modules
+├── scripts/
+│   └── check-static-js.mjs # Static JS syntax check
+├── .githooks/
+│   └── pre-commit         # Local commit checks
 ├── ecosystem.config.cjs   # PM2 config (local dev)
 ├── wrangler.jsonc          # Cloudflare Workers config
 ├── vite.config.ts          # Vite build config
@@ -99,6 +111,20 @@ pm2 start ecosystem.config.cjs
 npm run build          # Build with Vite
 npm run dev            # Vite dev server
 npm run preview        # Wrangler local preview
+npm run lint           # Check static frontend JS syntax
+npm run typecheck      # TypeScript type check
+npm run check          # lint + typecheck + build
+npm run hooks:install  # Enable .githooks/pre-commit locally
+```
+
+### Collaboration Checks
+```bash
+# one-time setup after clone
+npm install
+npm run hooks:install
+
+# manual full validation
+npm run check
 ```
 
 ## Deploy to Cloudflare Pages
