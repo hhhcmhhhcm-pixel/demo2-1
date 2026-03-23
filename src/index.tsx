@@ -855,7 +855,7 @@ app.get('/', (c) => {
         .replace(/．/g, '.')
         .replace(/，/g, ',')
         .replace(/,/g, '')
-        .replace(/[^\d.-]/g, '');
+        .replace(/[^\\d.-]/g, '');
       const val = parseFloat(normalized);
       return Number.isFinite(val) ? val : 0;
     }
