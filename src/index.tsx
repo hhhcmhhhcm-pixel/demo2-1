@@ -360,22 +360,43 @@ app.get('/', (c) => {
         </div>
 
         <!-- Filter Bar -->
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center space-x-2">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
             <h2 class="text-base font-bold text-gray-800">投资机会</h2>
             <span id="filterLabel" class="text-xs text-gray-400 font-medium">· 展示全部</span>
           </div>
-          <div class="flex items-center space-x-2">
-            <div class="relative"><input type="text" id="dealSearch" placeholder="搜索项目名称…" class="search-input px-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white w-48" oninput="renderDeals()"></div>
+          <div class="flex items-center gap-2">
+            <div class="flex items-center bg-white border border-gray-200 rounded-lg p-0.5">
+              <button id="viewModeStore" onclick="setDashboardViewMode('store')" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-teal-50 text-teal-700">门店视图</button>
+              <button id="viewModeBrand" onclick="setDashboardViewMode('brand')" class="px-2.5 py-1 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-50">品牌视图</button>
+            </div>
+            <div class="relative"><input type="text" id="dealSearch" placeholder="搜索公司/品牌/门店/行业/地区" class="search-input px-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white w-56" oninput="renderDeals()"></div>
+            <select class="px-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white" id="filterIndustry" onchange="renderDeals()">
+              <option value="all">全部行业</option>
+              <option value="餐饮">餐饮</option>
+              <option value="零售">零售</option>
+              <option value="演艺">演艺</option>
+              <option value="教育">教育</option>
+              <option value="健康">健康</option>
+              <option value="科技">科技</option>
+            </select>
             <select class="px-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white" id="filterStatus" onchange="renderDeals()">
               <option value="all">全部状态</option>
               <option value="open">待参与</option>
               <option value="interested">已意向</option>
               <option value="confirmed">已确认</option>
               <option value="closed">已关闭</option>
+              <option value="skipped">已跳过</option>
+            </select>
+            <select class="px-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white" id="sortBy" onchange="renderDeals()">
+              <option value="push_desc">按推送时间</option>
+              <option value="score_desc">按AI评分</option>
+              <option value="amount_desc">按金额(高到低)</option>
+              <option value="amount_asc">按金额(低到高)</option>
             </select>
           </div>
         </div>
+        <p class="text-[11px] text-gray-400 mb-3"><i class="fas fa-shield-check mr-1 text-teal-500"></i>资产定向搜索仅匹配 KYB 已认证项目</p>
 
         <!-- Deal Grid -->
         <div id="dealGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
@@ -558,6 +579,7 @@ app.get('/', (c) => {
     let dealsList = []; // 当前筛子过滤后的机会
     let currentDeal = null;
     let currentSieve = 'all'; // 当前选中的筛子
+    let dashboardViewMode = 'store'; // store | brand
     let currentSessionTab = 'research'; // 项目会话当前Tab
     let obStep = 0;
 
@@ -770,6 +792,25 @@ app.get('/', (c) => {
       });
     }
 
+    function setDashboardViewMode(mode) {
+      dashboardViewMode = mode;
+      const storeBtn = document.getElementById('viewModeStore');
+      const brandBtn = document.getElementById('viewModeBrand');
+      if (storeBtn) {
+        storeBtn.classList.toggle('bg-teal-50', mode === 'store');
+        storeBtn.classList.toggle('text-teal-700', mode === 'store');
+        storeBtn.classList.toggle('text-gray-600', mode !== 'store');
+        storeBtn.classList.toggle('hover:bg-gray-50', mode !== 'store');
+      }
+      if (brandBtn) {
+        brandBtn.classList.toggle('bg-teal-50', mode === 'brand');
+        brandBtn.classList.toggle('text-teal-700', mode === 'brand');
+        brandBtn.classList.toggle('text-gray-600', mode !== 'brand');
+        brandBtn.classList.toggle('hover:bg-gray-50', mode !== 'brand');
+      }
+      renderDeals();
+    }
+
     // ==================== Auth ====================
     function switchAuthTab(tab) {
       const tl = document.getElementById('tabLogin'), tr = document.getElementById('tabRegister');
@@ -832,6 +873,7 @@ app.get('/', (c) => {
       switchPage('pageDashboard');
       initMySieves();
       renderSieveSelector();
+      setDashboardViewMode(dashboardViewMode);
       selectSieve('all');
       showToast('success', '登录成功', '欢迎回来，' + name);
       if (!localStorage.getItem('ec_onboarded')) { setTimeout(showOnboarding, 800); }
@@ -847,25 +889,34 @@ app.get('/', (c) => {
     // ==================== Demo Data (模拟发起通数据) ====================
     function loadDemoData() {
       const industries = ['餐饮','零售','演艺','教育','健康','科技','餐饮','零售','科技','餐饮','教育','健康'];
-      const names = [
+      const storeNames = [
         '星巴克杭州新店','瑞幸深圳旗舰店','周杰伦2026巡演','新东方AI学堂',
         '美年健康体检中心','字节跳动AI Lab','海底捞成都总店','泡泡玛特北京旗舰',
         '喜茶上海概念店','太二酸菜鱼广州店','猿辅导天津中心','和睦家北京诊所'
       ];
+      const brandNames = ['星巴克','瑞幸','杰威尔文化','新东方','美年健康','字节跳动','海底捞','泡泡玛特','喜茶','太二','猿辅导','和睦家'];
+      const companyNames = ['杭州星巴克运营有限公司','深圳瑞幸品牌管理有限公司','杰威尔演艺经纪有限公司','新东方教育科技集团','美年大健康产业集团','字节跳动科技有限公司','海底捞餐饮管理集团','泡泡玛特文化创意有限公司','喜茶餐饮管理有限公司','太二餐饮管理有限公司','猿辅导在线教育科技','和睦家医疗投资管理'];
       const locations = ['杭州','深圳','全国','北京','上海','北京','成都','北京','上海','广州','天津','北京'];
       const originators = ['杭州星巴克运营方','深圳瑞幸加盟商','演艺经纪公司','新东方教育集团','美年大健康集团','字节跳动投融部','海底捞运营总部','泡泡玛特品牌方','喜茶(深圳)公司','太二餐饮管理','猿辅导科技','和睦家医疗'];
+      const disclosureStates = ['disclosed', 'undisclosed', 'none'];
 
-      allDeals = names.map((name, i) => ({
+      allDeals = storeNames.map((storeName, i) => ({
         id: 'D_' + (1000 + i),
-        name,
+        name: storeName,
+        companyName: companyNames[i],
+        brandName: brandNames[i],
+        storeName,
         industry: industries[i],
         amount: (200 + Math.floor(Math.random() * 800)) * 10000,
         aiScore: (7.0 + Math.random() * 3.0).toFixed(1),
         status: 'open',
+        skipped: false,
         revenueShare: (6 + Math.floor(Math.random() * 16)) + '%',
         period: (18 + Math.floor(Math.random() * 42)) + '个月',
         location: locations[i],
         originator: originators[i],
+        kybVerified: i % 4 !== 1,
+        historyDisclosure: disclosureStates[i % 3],
         originateDate: new Date(Date.now() - Math.random() * 30 * 86400000).toISOString().slice(0, 10),
         description: '由「' + originators[i] + '」通过发起通提交的' + industries[i] + '行业投资机会。已通过平台基础审核。',
         riskGrade: ['A+','A','A','A-','B+','A+','A-','B+','A','B+','A-','A'][i],
@@ -1053,11 +1104,29 @@ app.get('/', (c) => {
       const empty = document.getElementById('emptyState');
       const searchVal = (document.getElementById('dealSearch')?.value || '').toLowerCase();
       const filterVal = document.getElementById('filterStatus')?.value || 'all';
+      const industryVal = document.getElementById('filterIndustry')?.value || 'all';
+      const sortVal = document.getElementById('sortBy')?.value || 'push_desc';
 
       let filtered = dealsList.filter(d => {
-        if (searchVal && !d.name.toLowerCase().includes(searchVal) && !d.industry.includes(searchVal)) return false;
-        if (filterVal !== 'all' && d.status !== filterVal) return false;
+        if (industryVal !== 'all' && d.industry !== industryVal) return false;
+        if (filterVal === 'skipped' && !d.skipped) return false;
+        if (filterVal !== 'all' && filterVal !== 'skipped' && d.status !== filterVal) return false;
+        if (searchVal) {
+          // 仅 KYB 已认证项目可参与资产定向搜索
+          if (!d.kybVerified) return false;
+          const searchFields = [d.companyName, d.brandName, d.storeName, d.name, d.industry, d.location]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          if (!searchFields.includes(searchVal)) return false;
+        }
         return true;
+      });
+      filtered = filtered.sort((a, b) => {
+        if (sortVal === 'score_desc') return parseFloat(b.aiScore) - parseFloat(a.aiScore);
+        if (sortVal === 'amount_desc') return b.amount - a.amount;
+        if (sortVal === 'amount_asc') return a.amount - b.amount;
+        return (new Date(b.originateDate).getTime()) - (new Date(a.originateDate).getTime());
       });
 
       // Update stats
@@ -1075,24 +1144,37 @@ app.get('/', (c) => {
         confirmed: { label: '已确认', cls: 'badge-success', icon: 'fa-check-double' },
         closed: { label: '已关闭', cls: 'badge-danger', icon: 'fa-lock' }
       };
+      const disclosureMap = {
+        disclosed: { label: '历史履约: 已披露', cls: 'bg-emerald-50 text-emerald-700' },
+        undisclosed: { label: '历史履约: 未披露', cls: 'bg-amber-50 text-amber-700' },
+        none: { label: '历史履约: 无历史数据', cls: 'bg-gray-100 text-gray-600' }
+      };
 
       grid.innerHTML = filtered.map(d => {
         const st = statusMap[d.status] || statusMap.open;
+        const disclosure = disclosureMap[d.historyDisclosure || 'none'] || disclosureMap.none;
         const hasMatch = d.matchScore !== null && d.matchScore !== undefined;
         const matchColor = hasMatch ? (d.matchScore >= 80 ? '#10b981' : d.matchScore >= 60 ? '#f59e0b' : '#ef4444') : '#6b7280';
+        const title = dashboardViewMode === 'brand' ? (d.brandName || d.name) : (d.storeName || d.name);
+        const subtitle = dashboardViewMode === 'brand'
+          ? (d.companyName || d.originator || '融资主体') + ' · ' + d.industry + ' · ' + d.location
+          : (d.brandName || '品牌') + ' · ' + d.industry + ' · ' + d.location;
 
         return '<div class="project-card group cursor-pointer animate-fade-in" onclick="openDetail(\\'' + d.id + '\\')">' +
           // Header: name + status
           '<div class="flex items-center justify-between mb-2">' +
             '<div class="flex items-center space-x-2 min-w-0">' +
               '<div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: linear-gradient(135deg, rgba(93,196,179,0.12), rgba(73,168,154,0.12));"><i class="fas fa-briefcase" style="color: #5DC4B3;"></i></div>' +
-              '<div class="min-w-0"><h3 class="font-bold text-gray-900 text-sm group-hover:text-teal-600 transition-colors truncate">' + d.name + '</h3><p class="text-xs text-gray-500">' + d.industry + ' · ' + d.location + '</p></div>' +
+              '<div class="min-w-0"><h3 class="font-bold text-gray-900 text-sm group-hover:text-teal-600 transition-colors truncate">' + title + '</h3><p class="text-xs text-gray-500 truncate">' + subtitle + '</p></div>' +
             '</div>' +
-            '<span class="badge ' + st.cls + ' flex-shrink-0"><i class="fas ' + st.icon + ' mr-1"></i>' + st.label + '</span>' +
+            '<div class="flex items-center gap-1.5"><span class="badge ' + st.cls + ' flex-shrink-0"><i class="fas ' + st.icon + ' mr-1"></i>' + st.label + '</span>' +
+            (d.skipped ? '<span class="badge badge-danger"><i class="fas fa-forward mr-1"></i>已跳过</span>' : '') + '</div>' +
           '</div>' +
-          // 来源标签 + 筛子标签
-          '<div class="flex items-center gap-1.5 mb-2">' +
+          // 来源标签 + 披露标签 + 筛子标签
+          '<div class="flex flex-wrap items-center gap-1.5 mb-2">' +
             '<span class="source-tag source-originate"><i class="fas fa-paper-plane" style="font-size:8px;"></i>发起通</span>' +
+            '<span class="text-[10px] px-2 py-0.5 rounded ' + disclosure.cls + '">' + disclosure.label + '</span>' +
+            '<span class="text-[10px] px-2 py-0.5 rounded ' + (d.kybVerified ? 'bg-cyan-50 text-cyan-700' : 'bg-rose-50 text-rose-700') + '">' + (d.kybVerified ? 'KYB已认证' : 'KYB未认证') + '</span>' +
             (hasMatch ? '<span class="sieve-tag sieve-pass"><i class="fas fa-check" style="font-size:8px;"></i>' + (d.sieveName || '筛子') + '</span>' : '') +
             (hasMatch ? '<span class="text-xs font-bold" style="color:' + matchColor + ';">' + d.matchScore + '%匹配</span>' : '') +
           '</div>' +
@@ -1108,9 +1190,12 @@ app.get('/', (c) => {
             '<div class="flex items-center"><i class="fas fa-star text-amber-400 mr-1"></i><span class="font-bold text-gray-700">' + d.aiScore + '</span></div>' +
           '</div>' +
           // Footer
-          '<div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">' +
+          '<div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">' +
             '<span class="text-xs text-gray-400"><i class="fas fa-paper-plane mr-1 text-amber-300"></i>' + d.originateDate + '</span>' +
-            '<button onclick="event.stopPropagation(); toggleIntent(\\'' + d.id + '\\')" class="text-xs font-medium ' + (d.status === 'interested' || d.status === 'confirmed' ? 'text-teal-600' : 'text-gray-400 hover:text-teal-600') + ' transition-colors"><i class="fas fa-hand-point-up mr-1"></i>' + (d.status === 'interested' ? '已有意向' : d.status === 'confirmed' ? '已确认' : '表达意向') + '</button>' +
+            '<div class="flex items-center gap-3">' +
+              '<button onclick="event.stopPropagation(); toggleSkip(\\'' + d.id + '\\')" class="text-xs font-medium ' + (d.skipped ? 'text-rose-600' : 'text-gray-400 hover:text-rose-600') + ' transition-colors"><i class="fas fa-forward mr-1"></i>' + (d.skipped ? '取消跳过' : '标记跳过') + '</button>' +
+              '<button onclick="event.stopPropagation(); toggleIntent(\\'' + d.id + '\\')" class="text-xs font-medium ' + (d.status === 'interested' || d.status === 'confirmed' ? 'text-teal-600' : 'text-gray-400 hover:text-teal-600') + ' transition-colors"><i class="fas fa-hand-point-up mr-1"></i>' + (d.status === 'interested' ? '已有意向' : d.status === 'confirmed' ? '已确认' : '表达意向') + '</button>' +
+            '</div>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -1129,6 +1214,15 @@ app.get('/', (c) => {
       localStorage.setItem('ec_allDeals', JSON.stringify(allDeals));
       // 重新应用筛子
       selectSieve(currentSieve);
+    }
+
+    function toggleSkip(id) {
+      const deal = allDeals.find(d => d.id === id);
+      if (!deal) return;
+      deal.skipped = !deal.skipped;
+      localStorage.setItem('ec_allDeals', JSON.stringify(allDeals));
+      selectSieve(currentSieve);
+      showToast(deal.skipped ? 'warning' : 'info', deal.skipped ? '已标记跳过' : '已取消跳过', deal.name);
     }
 
     // ==================== Detail Page ====================
