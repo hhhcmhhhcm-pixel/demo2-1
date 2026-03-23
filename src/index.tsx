@@ -734,8 +734,30 @@ app.get('/', (c) => {
     <div id="sessionTab-timeline" class="hidden flex-1 overflow-y-auto p-5">
       <div class="max-w-7xl mx-auto space-y-4">
         <div class="bg-white rounded-2xl border border-gray-100 p-5">
-          <h3 class="text-base font-bold text-gray-900 mb-2"><i class="fas fa-stream mr-2 text-indigo-600"></i>时间线（即将接入）</h3>
-          <p class="text-sm text-gray-500">下一步将实现全程操作留痕与历史版本回填到工作台。</p>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-base font-bold text-gray-900"><i class="fas fa-stream mr-2 text-indigo-600"></i>全程操作时间线</h3>
+            <button onclick="renderTimelineTab()" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">刷新</button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
+            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-xs text-gray-500">事件总数</p><p id="timelineCountAll" class="font-semibold text-gray-800">0</p></div>
+            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-xs text-gray-500">方案事件</p><p id="timelineCountProposal" class="font-semibold text-gray-800">0</p></div>
+            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-xs text-gray-500">纪要事件</p><p id="timelineCountMemo" class="font-semibold text-gray-800">0</p></div>
+            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-xs text-gray-500">最近更新</p><p id="timelineLastAt" class="font-semibold text-gray-800">--</p></div>
+          </div>
+          <div class="mt-3 flex items-center gap-2">
+            <label class="text-xs text-gray-500">筛选类型</label>
+            <select id="timelineFilterType" class="px-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white" onchange="renderTimelineTab()">
+              <option value="all">全部</option>
+              <option value="proposal">提案相关</option>
+              <option value="memo">纪要相关</option>
+              <option value="intent">意向相关</option>
+              <option value="invite">邀请相关</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-gray-100 p-5">
+          <div id="timelineList" class="space-y-3 text-sm text-gray-600">暂无时间线事件。</div>
         </div>
       </div>
     </div>
@@ -1030,6 +1052,7 @@ app.get('/', (c) => {
       }
       if (tab === 'intent') renderIntentTab();
       if (tab === 'negotiation') renderNegotiationTab();
+      if (tab === 'timeline') renderTimelineTab();
     }
 
     function setDashboardViewMode(mode) {
@@ -1604,6 +1627,85 @@ app.get('/', (c) => {
       pushTimelineEvent('invite_created', '创建协作邀请（' + (role === 'negotiator' ? '谈判者' : '观察者') + '）', getPublicTermsFromWorkbench());
       renderNegotiationTab();
       showToast('success', '邀请链接已生成', '有效期至 ' + expiresAt.slice(0, 10));
+    }
+
+    function getTimelineTypeMeta(type) {
+      const map = {
+        intent_submitted: { label: '提交意向', category: 'intent' },
+        intent_accepted: { label: '意向接受', category: 'intent' },
+        intent_rejected: { label: '意向拒绝', category: 'intent' },
+        draft_saved: { label: '保存草稿', category: 'proposal' },
+        proposal_submitted: { label: '提交提案', category: 'proposal' },
+        proposal_accepted: { label: '提案接受', category: 'proposal' },
+        proposal_rejected: { label: '提案拒绝', category: 'proposal' },
+        proposal_countered: { label: '反提案', category: 'proposal' },
+        proposal_withdrawn: { label: '撤回提案', category: 'proposal' },
+        counter_loaded: { label: '加载反提案', category: 'proposal' },
+        timeline_reloaded: { label: '回填历史版本', category: 'proposal' },
+        terms_confirmed: { label: '条款达成', category: 'proposal' },
+        memo_uploaded: { label: '上传纪要', category: 'memo' },
+        invite_created: { label: '创建邀请', category: 'invite' }
+      };
+      return map[type] || { label: type || '未知事件', category: 'all' };
+    }
+
+    function getTimelineEventsForCurrentDeal() {
+      if (!currentDeal) return [];
+      return timelineByDeal[currentDeal.id] || [];
+    }
+
+    function renderTimelineTab() {
+      if (!currentDeal) return;
+      const allEvents = getTimelineEventsForCurrentDeal();
+      const filterVal = document.getElementById('timelineFilterType')?.value || 'all';
+      const filteredEvents = allEvents.filter((e) => {
+        if (filterVal === 'all') return true;
+        return getTimelineTypeMeta(e.type).category === filterVal;
+      });
+
+      const proposalCount = allEvents.filter((e) => getTimelineTypeMeta(e.type).category === 'proposal').length;
+      const memoCount = allEvents.filter((e) => getTimelineTypeMeta(e.type).category === 'memo').length;
+      setText('timelineCountAll', String(allEvents.length));
+      setText('timelineCountProposal', String(proposalCount));
+      setText('timelineCountMemo', String(memoCount));
+      setText('timelineLastAt', allEvents[0]?.at ? allEvents[0].at.slice(0, 16).replace('T', ' ') : '--');
+
+      const list = document.getElementById('timelineList');
+      if (!list) return;
+      if (!filteredEvents.length) {
+        list.textContent = '暂无符合筛选条件的时间线事件。';
+        return;
+      }
+
+      list.innerHTML = filteredEvents.map((e) => {
+        const meta = getTimelineTypeMeta(e.type);
+        const terms = e.publicTerms ? formatTermsInline(e.publicTerms) : '无公共参数';
+        const actor = (e.actor || '我方') + '（' + (e.role || 'investor') + '）';
+        const at = e.at ? e.at.slice(0, 19).replace('T', ' ') : '--';
+        return '<div class="p-3 rounded-xl border border-gray-100 bg-gray-50">' +
+          '<div class="flex items-center justify-between mb-1">' +
+            '<div class="flex items-center gap-2"><span class="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-600">' + meta.label + '</span><span class="text-xs text-gray-500">' + at + '</span></div>' +
+            (e.publicTerms ? '<button onclick="loadTimelineTermsToWorkbench(&apos;' + e.id + '&apos;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">基于此版修改</button>' : '') +
+          '</div>' +
+          '<p class="text-xs text-gray-700 mb-1">操作人：' + actor + '</p>' +
+          '<p class="text-xs text-gray-700 mb-1">摘要：' + (e.summary || '无') + '</p>' +
+          '<p class="text-xs text-gray-500">公共参数：' + terms + '</p>' +
+        '</div>';
+      }).join('');
+    }
+
+    function loadTimelineTermsToWorkbench(eventId) {
+      if (!currentDeal) return;
+      const events = getTimelineEventsForCurrentDeal();
+      const event = events.find((e) => e.id === eventId);
+      if (!event || !event.publicTerms) {
+        showToast('warning', '无法加载版本', '该事件无公共参数快照');
+        return;
+      }
+      applyPublicTermsToWorkbench(event.publicTerms);
+      pushTimelineEvent('timeline_reloaded', '基于时间线事件 ' + eventId + ' 回填条款参数', event.publicTerms);
+      showToast('success', '已回填到工作台', '你可以在条款工作台继续修改并提交');
+      switchSessionTab('workbench');
     }
 
     function ensureWorkbenchState() {
