@@ -798,7 +798,10 @@ app.get('/', (c) => {
 
   <!-- ==================== JavaScript ==================== -->
   <script src="/static/js/state.js"></script>
-  <script src="/static/js/core.js"></script>
+  <script src="/static/js/shared.js"></script>
+  <script src="/static/js/intent.js"></script>
+  <script src="/static/js/negotiation.js"></script>
+  <script src="/static/js/workbench.js"></script>
   <script src="/static/js/auth.js"></script>
   <script src="/static/js/sieves.js"></script>
   <script src="/static/js/dashboard.js"></script>
