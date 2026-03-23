@@ -285,7 +285,7 @@ export const MAIN_HTML = `
             <span id="filterLabel" class="text-xs text-gray-400 font-medium">· 展示全部</span>
           </div>
           <div class="flex items-center gap-2">
-            <div class="flex items-center bg-white border border-gray-200 rounded-lg p-0.5">
+            <div id="dashboardViewModeGroup" class="flex items-center bg-white border border-gray-200 rounded-lg p-0.5">
               <button id="viewModeStore" onclick="setDashboardViewMode('store')" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-teal-50 text-teal-700">门店视图</button>
               <button id="viewModeBrand" onclick="setDashboardViewMode('brand')" class="px-2.5 py-1 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-50">品牌视图</button>
             </div>
