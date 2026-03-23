@@ -508,74 +508,103 @@ app.get('/', (c) => {
     <!-- Tab: 营业额预估工作台 -->
     <div id="sessionTab-forecast" class="hidden flex-1 overflow-y-auto p-5">
       <div class="max-w-7xl mx-auto space-y-4">
+        <!-- 标题 -->
         <div class="bg-white rounded-2xl border border-gray-100 p-5">
           <h3 class="text-base font-bold text-gray-900 mb-2"><i class="fas fa-chart-line mr-2 text-teal-600"></i>营业额预估工作台</h3>
-          <p class="text-sm text-gray-500">条款工作台的前置支撑工具，为"预测月均营业额"参数提供数据基础。</p>
+          <p class="text-sm text-gray-500">汇聚系统预估与融资方预估，支持自行填写，产出月均营业额供条款工作台使用。</p>
         </div>
 
-        <div id="forecastPanel" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <!-- 预估输入区 -->
+        <!-- 可视化走势对比图 -->
+        <div class="bg-white rounded-2xl border border-gray-100 p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-chart-area mr-1.5 text-cyan-500"></i>走势对比图</h4>
+            <div class="flex gap-2">
+              <button onclick="setFcChartRange('1y')" id="fcRange1y" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700">1年</button>
+              <button onclick="setFcChartRange('3y')" id="fcRange3y" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-500">3年</button>
+              <button onclick="setFcChartRange('10y')" id="fcRange10y" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-500">10年</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 mb-3 text-[10px]">
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded" style="background:#14b8a6;"></span>系统预估</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded" style="background:#0ea5e9;"></span>融资方预估</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded" style="background:#f59e0b;"></span>我的填写</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded dashed" style="border-bottom:2px dashed #94a3b8;width:12px;height:0;"></span>历史实际</span>
+          </div>
+          <div id="fcChartContainer" class="h-48 relative overflow-hidden rounded-lg bg-gray-50 border border-gray-100 p-3">
+            <div class="text-center py-12 text-gray-400"><i class="fas fa-chart-area text-3xl mb-2 opacity-40"></i><p class="text-sm">选择项目后展示走势图</p></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <!-- 系统预估（只读） -->
           <div class="bg-white rounded-2xl border border-gray-100 p-4">
             <div class="flex items-center justify-between mb-3">
-              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-edit mr-1.5 text-teal-500"></i>预估参数</h4>
+              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-robot mr-1.5 text-teal-500"></i>系统平推预估</h4>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-teal-50 text-teal-600">只读 · 10年</span>
+            </div>
+            <div id="fcSystemInfo" class="space-y-2">
+              <p class="text-xs text-gray-400">选择项目后显示</p>
+            </div>
+            <button onclick="applyForecastToWb('system')" class="w-full mt-3 px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700"><i class="fas fa-check mr-1"></i>采用系统预估</button>
+          </div>
+
+          <!-- 融资方预估（只读） -->
+          <div class="bg-white rounded-2xl border border-gray-100 p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-upload mr-1.5 text-cyan-500"></i>融资方提交预估</h4>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-50 text-cyan-600">只读 · 3年</span>
+            </div>
+            <div id="fcBorrowerInfo" class="space-y-2">
+              <p class="text-xs text-gray-400">选择项目后显示</p>
+            </div>
+            <button onclick="applyForecastToWb('borrower')" class="w-full mt-3 px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700"><i class="fas fa-check mr-1"></i>采用融资方预估</button>
+          </div>
+
+          <!-- 自行填写 -->
+          <div class="bg-white rounded-2xl border border-gray-100 p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-pen mr-1.5 text-amber-500"></i>自行填写</h4>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-600">可编辑</span>
             </div>
             <div class="space-y-3">
-              <div>
-                <label class="block text-xs text-gray-500 mb-1">月营收基准（万）</label>
-                <input id="fcBase" type="text" inputmode="decimal" placeholder="例如 120.5" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+              <!-- 输入模式选择 -->
+              <div class="flex bg-gray-100 rounded-lg p-0.5">
+                <button onclick="setFcInputMode('quick')" id="fcModeQuick" class="flex-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-white shadow text-amber-700">快捷填写</button>
+                <button onclick="setFcInputMode('monthly')" id="fcModeMonthly" class="flex-1 px-2 py-1 rounded-md text-[11px] font-semibold text-gray-500">逐月填写</button>
+                <button onclick="setFcInputMode('yearly')" id="fcModeYearly" class="flex-1 px-2 py-1 rounded-md text-[11px] font-semibold text-gray-500">逐年填写</button>
               </div>
-              <div>
-                <label class="block text-xs text-gray-500 mb-1">增长率（%）</label>
-                <input id="fcGrowth" type="number" value="6" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+              <!-- 快捷模式 -->
+              <div id="fcInputQuick">
+                <label class="block text-xs text-gray-500 mb-1">月均营业额预估（万）</label>
+                <input id="fcQuickValue" type="text" inputmode="decimal" placeholder="例如 150" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="onFcQuickInput()">
               </div>
-              <div>
-                <label class="block text-xs text-gray-500 mb-1">季节修正（%）</label>
-                <input id="fcSeasonality" type="number" value="0" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+              <!-- 逐月模式 -->
+              <div id="fcInputMonthly" class="hidden">
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs text-gray-500">逐月营业额（万）</label>
+                  <select id="fcMonthlyYear" class="text-[11px] px-2 py-0.5 border border-gray-200 rounded bg-white" onchange="renderFcMonthlyInputs()"></select>
+                </div>
+                <div id="fcMonthlyGrid" class="grid grid-cols-4 gap-1.5"></div>
               </div>
-              <div>
-                <label class="block text-xs text-gray-500 mb-1">数据来源</label>
-                <select id="fcSource" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
-                  <option value="system">系统平推预估</option>
-                  <option value="borrower">融资方上传预估</option>
-                  <option value="self">自行填写</option>
-                </select>
+              <!-- 逐年模式 -->
+              <div id="fcInputYearly" class="hidden">
+                <label class="text-xs text-gray-500 mb-1 block">逐年月均营业额（万）</label>
+                <div id="fcYearlyGrid" class="space-y-1.5"></div>
               </div>
-              <button onclick="runForecastCalc()" class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">计算预估</button>
+              <button onclick="saveFcSelfInput()" class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600"><i class="fas fa-save mr-1"></i>保存并采用</button>
             </div>
           </div>
+        </div>
 
-          <!-- 预估结果区 -->
-          <div class="bg-white rounded-2xl border border-gray-100 p-4">
-            <div class="flex items-center justify-between mb-3">
-              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-chart-area mr-1.5 text-cyan-500"></i>预估结果</h4>
+        <!-- 当前选择状态 -->
+        <div class="bg-white rounded-2xl border border-gray-100 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-sm font-bold text-gray-800"><i class="fas fa-check-circle mr-1.5 text-teal-500"></i>当前带入条款工作台的值</span>
+              <span id="fcSelectedValue" class="ml-2 text-sm font-bold text-teal-600">未选择</span>
+              <span id="fcSelectedSource" class="ml-1 text-xs text-gray-400"></span>
             </div>
-            <div id="fcResult" class="space-y-3">
-              <div class="text-center py-8 text-gray-400">
-                <i class="fas fa-calculator text-3xl mb-2 opacity-40"></i>
-                <p class="text-sm">填写参数后点击"计算预估"</p>
-              </div>
-            </div>
-            <div id="fcChartArea" class="mt-4 p-3 rounded-xl bg-gray-50 border border-gray-100 hidden">
-              <p class="text-xs text-gray-500 mb-2">可视化走势（按月汇总）</p>
-              <div class="h-32 flex items-end gap-1" id="fcChartBars"></div>
-            </div>
-          </div>
-
-          <!-- 衔接操作区 -->
-          <div class="bg-white rounded-2xl border border-gray-100 p-4">
-            <div class="flex items-center justify-between mb-3">
-              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-link mr-1.5 text-amber-500"></i>与条款工作台衔接</h4>
-            </div>
-            <div id="fcLinkInfo" class="space-y-3">
-              <p class="text-xs text-gray-500">计算完成后，选择将哪个月均营业额带入条款工作台的私有预测区：</p>
-              <div class="space-y-2">
-                <button onclick="applyForecastToWb('system')" class="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 text-left"><i class="fas fa-robot mr-1.5 text-teal-500"></i>采用系统预估</button>
-                <button onclick="applyForecastToWb('borrower')" class="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 text-left"><i class="fas fa-upload mr-1.5 text-cyan-500"></i>采用融资方预估</button>
-                <button onclick="applyForecastToWb('self')" class="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 text-left"><i class="fas fa-pen mr-1.5 text-amber-500"></i>自行填写</button>
-              </div>
-              <button onclick="switchSessionTab('workbench')" class="w-full mt-2 px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700"><i class="fas fa-arrow-right mr-1"></i>前往条款工作台</button>
-            </div>
-            <p class="text-[11px] text-gray-400 mt-3">提示：带入后的值将作为条款工作台私有预测区的"预测月均营业额"输入。</p>
+            <button onclick="switchSessionTab('workbench')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700"><i class="fas fa-arrow-right mr-1"></i>前往条款工作台</button>
           </div>
         </div>
       </div>
