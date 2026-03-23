@@ -1,0 +1,41 @@
+{
+  // ===================================================================
+  // wrangler.jsonc -- Cloudflare Pages部署配置 (V20)
+  // ===================================================================
+  // 当前为纯静态+Worker模式，无KV/R2/D1/AI绑定。
+  // 本地开发: npx wrangler pages dev dist --ip 0.0.0.0 --port 3000
+  // 部署: npx wrangler pages deploy dist --project-name webapp
+  // ===================================================================
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webapp",                    // 项目名称(用于部署标识)
+  "compatibility_date": "2026-02-25",  // Workers运行时兼容日期
+  "pages_build_output_dir": "./dist",  // Vite构建输出目录
+  "compatibility_flags": [
+    "nodejs_compat"                    // 启用Node.js兼容模式(部分API)
+  ]
+  // "vars": {
+  //   "MY_VAR": "my-variable"
+  // },
+  // "kv_namespaces": [
+  //   {
+  //     "binding": "MY_KV_NAMESPACE",
+  //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  //   }
+  // ],
+  // "r2_buckets": [
+  //   {
+  //     "binding": "MY_BUCKET",
+  //     "bucket_name": "my-bucket"
+  //   }
+  // ],
+  // "d1_databases": [
+  //   {
+  //     "binding": "MY_DB",
+  //     "database_name": "my-database",
+  //     "database_id": ""
+  //   }
+  // ],
+  // "ai": {
+  //   "binding": "AI"
+  // }
+}
