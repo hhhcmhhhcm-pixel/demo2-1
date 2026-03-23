@@ -48,15 +48,8 @@
       const matchColor = hasMatch ? (currentDeal.matchScore >= 80 ? '#10b981' : currentDeal.matchScore >= 60 ? '#f59e0b' : '#ef4444') : '#6b7280';
       const industryRef = INDUSTRY_COMPARABLES[currentDeal.industry] || INDUSTRY_COMPARABLES.default;
       const savedResearch = researchInputsByDeal[currentDeal.id] || {};
-      const defaultBase = savedResearch.base || parseWanValue(currentDeal.monthlyRevenue) || 100;
-      const defaultGrowth = Number.isFinite(savedResearch.growth) ? savedResearch.growth : 6;
-      const defaultSeasonality = Number.isFinite(savedResearch.seasonality) ? savedResearch.seasonality : 0;
       const onePagerSummary = '项目「' + currentDeal.name + '」属于' + currentDeal.industry + '行业，当前AI评分' + currentDeal.aiScore + '，分成比例' + currentDeal.revenueShare + '，拟融资' + (currentDeal.amount/10000).toFixed(0) + '万。结合运营年限' + currentDeal.operatingYears + '年与风控评级' + (currentDeal.riskGrade || 'N/A') + '，建议重点核验现金流稳定性和季节波动。';
       const riskHint = parseFloat(currentDeal.aiScore) >= 8.5 ? '风险整体可控，建议重点关注扩张节奏与回款稳定性。' : '建议加强风控复核，重点校验营收波动与团队执行力。';
-      const forecastPreview = savedResearch.predictedMonthlyRevenue
-        ? '<div class="p-3 rounded-xl bg-teal-50 border border-teal-100"><p class="text-xs text-teal-700">上次预测</p><p class="text-base font-bold text-teal-700">' + savedResearch.predictedMonthlyRevenue.toFixed(1) + '万/月</p><p class="text-xs text-teal-600 mt-1">预估回本：' + ((savedResearch.paybackMonths || 0).toFixed(1)) + '个月</p></div>'
-        : '<p class="text-xs text-gray-400">尚未计算，填写参数后点击“计算预估”。</p>';
-
       // 生成各筛子的评估结果（只评估用户面板中的筛子）
       let sieveResults = '';
       mySieves.forEach(key => {
@@ -110,20 +103,13 @@
             '</div>' +
             '<div class="space-y-2">' + comparableCases + '</div>' +
           '</div>' +
-          // 营业额预估入口
-          '<div id="sectionForecast" class="bg-white rounded-2xl p-5 border border-gray-100">' +
-            '<h3 class="text-sm font-bold text-gray-800 mb-4"><i class="fas fa-chart-line mr-1.5 text-teal-500"></i>营业额预估工作台</h3>' +
-            '<div class="grid grid-cols-3 gap-3 mb-4">' +
-              '<div><label class="block text-xs text-gray-500 mb-1">月营收基准（万）</label><input id="forecastBase" type="text" inputmode="decimal" value="' + defaultBase + '" placeholder="例如 120.5" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"></div>' +
-              '<div><label class="block text-xs text-gray-500 mb-1">增长率（%）</label><input id="forecastGrowth" type="number" value="' + defaultGrowth + '" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"></div>' +
-              '<div><label class="block text-xs text-gray-500 mb-1">季节修正（%）</label><input id="forecastSeasonality" type="number" value="' + defaultSeasonality + '" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"></div>' +
+          // 营业额预估入口（已拆为独立Tab）
+          '<div class="bg-white rounded-2xl p-4 border border-gray-100">' +
+            '<div class="flex items-center justify-between">' +
+              '<div class="flex items-center gap-2"><i class="fas fa-chart-line text-teal-500"></i><span class="text-sm font-bold text-gray-800">营业额预估</span></div>' +
+              '<button onclick="switchSessionTab(&apos;forecast&apos;)" class="px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700"><i class="fas fa-arrow-right mr-1"></i>前往预估工作台</button>' +
             '</div>' +
-            '<div id="forecastResult" class="mb-4">' + forecastPreview + '</div>' +
-            '<div class="flex items-center gap-2">' +
-              '<button onclick="runRevenueForecast()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">计算预估</button>' +
-              '<button onclick="applyForecastToWorkbench()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700">带入条款工作台</button>' +
-              '<button onclick="switchSessionTab(&apos;workbench&apos;)" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">前往条款工作台</button>' +
-            '</div>' +
+            (savedResearch.predictedMonthlyRevenue ? '<p class="text-xs text-teal-600 mt-2">上次预测：' + savedResearch.predictedMonthlyRevenue.toFixed(1) + '万/月</p>' : '<p class="text-xs text-gray-400 mt-2">尚未计算，前往营业额预估工作台开始。</p>') +
           '</div>' +
           // 筛子评估结果（辅助）
           '<div class="bg-white rounded-2xl p-5 border border-gray-100"><h3 class="text-sm font-bold text-gray-800 mb-4"><i class="fas fa-filter mr-1.5 text-cyan-500"></i>筛子评估（辅助参考）</h3><div class="space-y-3">' + sieveResults + '</div>' +
@@ -160,8 +146,7 @@
     function switchDetailView(view) {
       const mapping = {
         onepager: { btn: 'btnOnepager', section: 'sectionOnepager' },
-        comparables: { btn: 'btnComparables', section: 'sectionComparables' },
-        forecast: { btn: 'btnForecast', section: 'sectionForecast' }
+        comparables: { btn: 'btnComparables', section: 'sectionComparables' }
       };
       Object.keys(mapping).forEach(k => {
         const btn = document.getElementById(mapping[k].btn);

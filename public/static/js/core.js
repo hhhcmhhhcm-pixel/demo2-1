@@ -35,7 +35,7 @@
 
     function switchSessionTab(tab) {
       currentSessionTab = tab;
-      const tabs = ['research', 'workbench', 'intent', 'negotiation', 'timeline'];
+      const tabs = ['research', 'forecast', 'workbench', 'intent', 'negotiation', 'timeline'];
       tabs.forEach(t => {
         const panel = document.getElementById('sessionTab-' + t);
         const btn = document.getElementById('sessionTabBtn-' + t);
@@ -47,6 +47,7 @@
           btn.classList.toggle('hover:bg-gray-50', t !== tab);
         }
       });
+      if (tab === 'forecast') renderForecastTab();
       if (tab === 'workbench') {
         refreshWorkbenchPrefill();
         renderWorkbench();
