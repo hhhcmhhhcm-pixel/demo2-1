@@ -335,13 +335,21 @@
         } else if (p.status === 'accepted') {
           actions.push('<button onclick="confirmNegotiationTerms(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded bg-teal-600 text-white">确认条款达成</button>');
         } else if (p.status === 'countered' && p.counterTerms) {
-          actions.push('<button onclick="applyCounterProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded bg-amber-600 text-white">采纳反提案到工作台</button>');
+          // 反提案发起方可撤回
+          if (p.counterBy === (currentPerspective || 'investor')) {
+            actions.push('<button onclick="withdrawCounterProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700">撤回反提案</button>');
+          }
+          // 原方案方可接受反提案
+          if (p.perspective === (currentPerspective || 'investor')) {
+            actions.push('<button onclick="acceptCounterProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded bg-emerald-600 text-white">接受反提案</button>');
+          }
         }
 
+        var counterByName = p.counterBy === 'financer' ? '融资方' : '投资方';
         return '<div class="p-3 rounded-xl border border-gray-100 bg-gray-50">' +
           '<div class="flex items-center justify-between mb-1"><p class="text-xs font-semibold text-gray-700">' + roleName + ' · ' + p.id + '</p><span class="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-600">' + getProposalStatusText(p.status) + '</span></div>' +
           '<p class="text-xs text-gray-500 mb-1">' + formatTermsInline(p.publicTerms) + '</p>' +
-          (p.counterTerms ? '<p class="text-xs text-cyan-700 mb-1">对方反提案：' + formatTermsInline(p.counterTerms) + '</p>' : '') +
+          (p.counterTerms ? '<p class="text-xs text-cyan-700 mb-1">' + counterByName + '反提案：' + formatTermsInline(p.counterTerms) + '</p>' : '') +
           (actions.length ? '<div class="flex flex-wrap gap-1 mt-2">' + actions.join('') + '</div>' : '') +
         '</div>';
       }).join('');
@@ -403,31 +411,98 @@
       if (action === 'accept') {
         proposal.status = 'accepted';
         pushTimelineEvent('proposal_accepted', '接受方案 ' + proposal.id, proposal.publicTerms);
+        saveNegotiationState();
+        renderNegotiationTab();
         showToast('success', '已接受', '可点击"确认条款达成"完成锁定');
       } else if (action === 'reject') {
         proposal.status = 'rejected';
         pushTimelineEvent('proposal_rejected', '拒绝方案 ' + proposal.id, proposal.publicTerms);
+        saveNegotiationState();
+        renderNegotiationTab();
         showToast('info', '已拒绝', '可调整参数后重新提交');
       } else if (action === 'counter') {
-        proposal.status = 'countered';
-        proposal.counterTerms = {
-          amountWan: Number((proposal.publicTerms.amountWan * 0.95).toFixed(1)),
-          sharePct: Number((proposal.publicTerms.sharePct + 0.6).toFixed(2)),
-          aprPct: Number(Math.max(0, proposal.publicTerms.aprPct - 0.5).toFixed(2)),
-          termMonths: Number(Math.max(1, proposal.publicTerms.termMonths + 2))
-        };
-        pushTimelineEvent('proposal_countered', '对方案 ' + proposal.id + ' 发起反提案', proposal.counterTerms);
-        showToast('info', '收到反提案', '可一键采纳到条款工作台继续谈判');
+        // 打开反提案弹窗，预填原方案数据
+        openCounterOverlay(proposalId);
       }
-      saveNegotiationState();
-      renderNegotiationTab();
     }
 
+    // ---- 反提案弹窗 ----
+    var counterTargetProposalId = null;
+
+    function openCounterOverlay(proposalId) {
+      var proposal = findProposalById(proposalId);
+      if (!proposal) return;
+      counterTargetProposalId = proposalId;
+      var overlay = document.getElementById('counterOverlay');
+      if (overlay) overlay.classList.remove('hidden');
+
+      var info = document.getElementById('counterOrigInfo');
+      if (info) info.textContent = '针对方案 ' + proposal.id + '（' + formatTermsInline(proposal.publicTerms) + '）';
+
+      var t = proposal.publicTerms || {};
+      var ea = document.getElementById('counterAmount');
+      var es = document.getElementById('counterShare');
+      var ep = document.getElementById('counterApr');
+      var et = document.getElementById('counterTerm');
+      if (ea) ea.value = t.amountWan || '';
+      if (es) es.value = t.sharePct || '';
+      if (ep) ep.value = t.aprPct || '';
+      if (et) et.value = t.termMonths || '';
+
+      var btn = document.getElementById('counterSubmitBtn');
+      if (btn) btn.onclick = function() { submitCounterProposal(); };
+    }
+
+    function closeCounterOverlay() {
+      var overlay = document.getElementById('counterOverlay');
+      if (overlay) overlay.classList.add('hidden');
+      counterTargetProposalId = null;
+    }
+
+    function submitCounterProposal() {
+      if (!counterTargetProposalId || !currentDeal) return;
+      var proposal = findProposalById(counterTargetProposalId);
+      if (!proposal) return;
+
+      var ea = document.getElementById('counterAmount');
+      var es = document.getElementById('counterShare');
+      var ep = document.getElementById('counterApr');
+      var et = document.getElementById('counterTerm');
+      var amount = parseFloat(ea ? ea.value : '');
+      var share = parseFloat(es ? es.value : '');
+      var apr = parseFloat(ep ? ep.value : '');
+      var term = parseInt(et ? et.value : '', 10);
+
+      if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(share) || share <= 0 || !Number.isFinite(apr) || !Number.isFinite(term) || term <= 0) {
+        showToast('warning', '参数不完整', '请填写所有条款数值');
+        return;
+      }
+
+      proposal.status = 'countered';
+      proposal.counterTerms = {
+        amountWan: +amount.toFixed(1),
+        sharePct: +share.toFixed(2),
+        aprPct: +apr.toFixed(2),
+        termMonths: term
+      };
+      proposal.counterBy = currentPerspective || 'investor';
+      proposal.counterAt = new Date().toISOString();
+
+      saveNegotiationState();
+      pushTimelineEvent('proposal_countered', '对方案 ' + proposal.id + ' 发起反提案', proposal.counterTerms);
+      closeCounterOverlay();
+      renderNegotiationTab();
+      showToast('success', '反提案已提交', '对方可在谈判记录中查看您的反提案');
+    }
+
+    // ---- 撤回 ----
     function withdrawNegotiationProposal(proposalId) {
       if (!currentDeal) return;
       var proposal = findProposalById(proposalId);
-      if (!proposal || (proposal.status !== 'draft' && proposal.status !== 'pending')) {
-        showToast('warning', '无法撤回', '仅草稿或待响应提案可撤回');
+      if (!proposal) return;
+      // 支持撤回：草稿、待响应、反提案状态
+      if (proposal.status !== 'draft' && proposal.status !== 'pending' && proposal.status !== 'countered') {
+        showToast('warning', '无法撤回', '当前状态不支持撤回');
         return;
       }
       proposal.status = 'withdrawn';
@@ -437,17 +512,36 @@
       showToast('info', '方案已撤回', proposal.id);
     }
 
-    function applyCounterProposal(proposalId) {
+    // 撤回反提案（恢复原方案为待响应状态）
+    function withdrawCounterProposal(proposalId) {
       if (!currentDeal) return;
       var proposal = findProposalById(proposalId);
-      if (!proposal || !proposal.counterTerms) {
-        showToast('warning', '无可用反提案', '请先等待对方反提案');
+      if (!proposal || proposal.status !== 'countered') {
+        showToast('warning', '无法撤回反提案', '当前状态不支持此操作');
         return;
       }
-      applyPublicTermsToWorkbench(proposal.counterTerms);
-      pushTimelineEvent('counter_loaded', '已将反提案 ' + proposal.id + ' 加载到工作台', proposal.counterTerms);
+      proposal.status = 'pending';
+      proposal.counterTerms = null;
+      proposal.counterBy = null;
+      proposal.counterAt = null;
+      saveNegotiationState();
+      pushTimelineEvent('counter_withdrawn', '撤回对方案 ' + proposal.id + ' 的反提案', proposal.publicTerms);
       renderNegotiationTab();
-      showToast('success', '反提案已加载', '请确认后再次提交方案');
+      showToast('info', '反提案已撤回', '方案恢复为待响应状态');
+    }
+
+    // 原方案方接受反提案 → 用反提案条款替换原方案，状态变为已接受
+    function acceptCounterProposal(proposalId) {
+      if (!currentDeal) return;
+      var proposal = findProposalById(proposalId);
+      if (!proposal || proposal.status !== 'countered' || !proposal.counterTerms) return;
+      proposal.publicTerms = proposal.counterTerms;
+      proposal.status = 'accepted';
+      proposal.counterTerms = null;
+      saveNegotiationState();
+      pushTimelineEvent('counter_accepted', '接受方案 ' + proposal.id + ' 的反提案条款', proposal.publicTerms);
+      renderNegotiationTab();
+      showToast('success', '已接受反提案', '可点击"确认条款达成"完成锁定');
     }
 
     function confirmNegotiationTerms(proposalId) {
@@ -533,7 +627,8 @@
         proposal_rejected: { label: '方案拒绝', category: 'proposal' },
         proposal_countered: { label: '反提案', category: 'proposal' },
         proposal_withdrawn: { label: '撤回方案', category: 'proposal' },
-        counter_loaded: { label: '加载反提案', category: 'proposal' },
+        counter_withdrawn: { label: '撤回反提案', category: 'proposal' },
+        counter_accepted: { label: '接受反提案', category: 'proposal' },
         timeline_reloaded: { label: '回填历史版本', category: 'proposal' },
         terms_confirmed: { label: '条款达成', category: 'proposal' },
         memo_uploaded: { label: '上传纪要', category: 'memo' },

@@ -785,6 +785,29 @@ export const MAIN_HTML = `
       </div>
     </div>
 
+    <!-- 反提案弹窗 -->
+    <div id="counterOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)closeCounterOverlay()">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4">
+        <div class="border-b border-gray-100 p-4 flex items-center justify-between rounded-t-2xl">
+          <div>
+            <h3 class="text-sm font-bold text-gray-900"><i class="fas fa-reply mr-1.5 text-cyan-600"></i>发起反提案</h3>
+            <p id="counterOrigInfo" class="text-xs text-gray-500 mt-0.5"></p>
+          </div>
+          <button onclick="closeCounterOverlay()" class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-5 space-y-3">
+          <p class="text-xs text-gray-500">请修改您希望调整的条款，未修改项将保留原方案数值。</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-[11px] text-gray-500 mb-0.5">融资金额（万）</label><input id="counterAmount" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"></div>
+            <div><label class="block text-[11px] text-gray-500 mb-0.5">分成比例（%）</label><input id="counterShare" type="number" step="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"></div>
+            <div><label class="block text-[11px] text-gray-500 mb-0.5">APR（%）</label><input id="counterApr" type="number" step="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"></div>
+            <div><label class="block text-[11px] text-gray-500 mb-0.5">合作期限（月）</label><input id="counterTerm" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"></div>
+          </div>
+          <button id="counterSubmitBtn" class="w-full px-3 py-2.5 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700">提交反提案</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab: 时间线 -->
     <div id="sessionTab-timeline" class="hidden flex-1 overflow-y-auto p-5">
       <div class="max-w-7xl mx-auto space-y-4">
