@@ -173,9 +173,7 @@
       state.selectedRequestId = requestId;
       syncLegacyIntentFields(state);
       saveIntentState();
-      renderIntentPerspective(state);
-      renderIntentRequestList(state);
-      renderIntentSummaryAndResponse(state);
+      renderIntentTab();
     }
 
     function renderIntentSummaryAndResponse(state) {
@@ -292,14 +290,17 @@
       const minEl = document.getElementById('intentCustomMin');
       const maxEl = document.getElementById('intentCustomMax');
       const noteEl = document.getElementById('intentNote');
-      if (typeEl) typeEl.value = state.investmentType || 'RBF固定';
-      if (bandEl) bandEl.value = state.amountBand || '300-500';
-      if (minEl) minEl.value = state.customMin || '';
-      if (maxEl) maxEl.value = state.customMax || '';
-      if (noteEl) noteEl.value = state.note || '';
+      const selected = getSelectedIntentRequest(state, false);
+      const formSource = currentPerspective === 'financer' && selected ? selected : state;
+      if (typeEl) typeEl.value = formSource.investmentType || 'RBF固定';
+      if (bandEl) bandEl.value = formSource.amountBand || '300-500';
+      if (minEl) minEl.value = formSource.customMin || '';
+      if (maxEl) maxEl.value = formSource.customMax || '';
+      if (noteEl) noteEl.value = formSource.note || '';
+      const selectedConcerns = Array.isArray(formSource.concerns) ? formSource.concerns : [];
       document.querySelectorAll('.intent-concern').forEach((el) => {
         const checkbox = el;
-        checkbox.checked = state.concerns.includes(checkbox.value);
+        checkbox.checked = selectedConcerns.includes(checkbox.value);
       });
       renderIntentPerspective(state);
       renderIntentRequestList(state);
@@ -371,6 +372,10 @@
         response: 'pending',
         summary: state.summary,
         fromName: currentUser?.displayName || currentUser?.username || '投资方',
+        investmentType: state.investmentType || 'RBF固定',
+        amountBand: state.amountBand || '300-500',
+        customMin: state.customMin || '',
+        customMax: state.customMax || '',
         amountText: getIntentAmountText(state),
         concerns: (state.concerns || []).slice(),
         note: state.note || ''
