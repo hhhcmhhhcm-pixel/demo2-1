@@ -100,22 +100,31 @@
 
     function renderWorkbench() {
       if (!currentDeal) return;
-      const state = ensureWorkbenchState();
+      var state = ensureWorkbenchState();
       if (!state) return;
-      const amount = document.getElementById('wbAmount');
-      const share = document.getElementById('wbShare');
-      const apr = document.getElementById('wbApr');
-      const term = document.getElementById('wbTerm');
-      const revenue = document.getElementById('wbRevenue');
-      const source = document.getElementById('wbRevenueSource');
+      var amount = document.getElementById('wbAmount');
+      var share = document.getElementById('wbShare');
+      var apr = document.getElementById('wbApr');
+      var term = document.getElementById('wbTerm');
+      var revenue = document.getElementById('wbRevenue');
+      var source = document.getElementById('wbRevenueSource');
       if (amount) amount.value = String(state.publicAmountWan);
       if (share) share.value = String(state.publicSharePct);
       if (apr) apr.value = String(state.publicAprPct);
       if (term) term.value = String(state.publicTermMonths);
-      if (revenue) revenue.value = String(state.privateRevenueWan);
+
       // 兼容旧数据：如果 source 是 research，映射到 self
-      const src = state.privateSource === 'research' ? 'self' : state.privateSource;
+      var src = state.privateSource === 'research' ? 'self' : state.privateSource;
       if (source) source.value = src;
+
+      // 用预估工作台的真实数据刷新私有营业额
+      var fcValue = getForecastValueBySource(src);
+      if (fcValue > 0) {
+        state.privateRevenueWan = +fcValue.toFixed(1);
+        saveWorkbenchState();
+      }
+      if (revenue) revenue.value = String(state.privateRevenueWan);
+
       recalcWorkbench();
     }
 
@@ -136,25 +145,37 @@
       recalcWorkbench();
     }
 
+    // 从营业额预估工作台获取指定来源的首年月均值
+    function getForecastValueBySource(source) {
+      if (!currentDeal) return 0;
+      // 确保预估数据已初始化（即使用户没打开过预估工作台 tab）
+      var fcState = (typeof ensureForecastState === 'function') ? ensureForecastState(currentDeal) : null;
+      if (!fcState) return 0;
+
+      if (source === 'system' && fcState.systemMonthly && fcState.systemMonthly.length > 0) {
+        return fcState.systemMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
+      }
+      if (source === 'borrower' && fcState.borrowerMonthly && fcState.borrowerMonthly.length > 0) {
+        return fcState.borrowerMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
+      }
+      if (source === 'self') {
+        // 优先用已选值，其次用快捷值
+        if (fcState.selectedSource === 'self' && fcState.selectedValue > 0) return fcState.selectedValue;
+        if (fcState.selfQuickValue > 0) return fcState.selfQuickValue;
+      }
+      return 0;
+    }
+
     // 切换来源时，从营业额预估工作台读取对应数值
     function onWbSourceChange() {
-      const state = ensureWorkbenchState();
+      var state = ensureWorkbenchState();
       if (!state || !currentDeal) return;
-      const source = document.getElementById('wbRevenueSource')?.value;
+      var source = document.getElementById('wbRevenueSource')?.value;
       if (!source) return;
 
-      const fcState = (typeof forecastByDeal !== 'undefined') ? forecastByDeal[currentDeal.id] : null;
-      let value = 0;
+      var value = getForecastValueBySource(source);
 
-      if (source === 'system' && fcState && fcState.systemMonthly && fcState.systemMonthly.length > 0) {
-        value = fcState.systemMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
-      } else if (source === 'borrower' && fcState && fcState.borrowerMonthly && fcState.borrowerMonthly.length > 0) {
-        value = fcState.borrowerMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
-      } else if (source === 'self' && fcState && fcState.selectedSource === 'self' && fcState.selectedValue > 0) {
-        value = fcState.selectedValue;
-      }
-
-      const revenueEl = document.getElementById('wbRevenue');
+      var revenueEl = document.getElementById('wbRevenue');
       if (revenueEl) revenueEl.value = value > 0 ? value.toFixed(1) : '0';
 
       state.privateSource = source;
@@ -165,29 +186,29 @@
 
     // 用户直接修改数值时：自动切到"自行填写"，并同步到营业额预估工作台快捷模式
     function onWbRevenueDirectInput() {
-      const state = ensureWorkbenchState();
+      var state = ensureWorkbenchState();
       if (!state || !currentDeal) return;
 
       // 自动切换来源到"自行填写"
-      const sourceEl = document.getElementById('wbRevenueSource');
+      var sourceEl = document.getElementById('wbRevenueSource');
       if (sourceEl && sourceEl.value !== 'self') {
         sourceEl.value = 'self';
       }
       state.privateSource = 'self';
 
-      const val = parseWanValue(document.getElementById('wbRevenue')?.value);
+      var val = parseWanValue(document.getElementById('wbRevenue')?.value);
       state.privateRevenueWan = val > 0 ? +val.toFixed(1) : 0;
       saveWorkbenchState();
 
       // 同步到营业额预估工作台（快捷填写模式）
-      if (val > 0 && typeof forecastByDeal !== 'undefined' && typeof ensureForecastState === 'function') {
-        const fcState = ensureForecastState(currentDeal);
+      if (val > 0 && typeof ensureForecastState === 'function') {
+        var fcState = ensureForecastState(currentDeal);
         if (fcState) {
           fcState.selfMode = 'quick';
           fcState.selfQuickValue = +val.toFixed(1);
           fcState.selectedSource = 'self';
           fcState.selectedValue = +val.toFixed(1);
-          saveForecastState();
+          if (typeof saveForecastState === 'function') saveForecastState();
         }
       }
 
