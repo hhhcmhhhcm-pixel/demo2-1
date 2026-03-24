@@ -687,30 +687,12 @@ export const MAIN_HTML = `
         <div class="xl:col-span-2 space-y-4">
           <div class="bg-white rounded-2xl border border-gray-100 p-5">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-gray-900"><i class="fas fa-comments mr-2 text-amber-600"></i>方案提交与谈判循环</h3>
-              <span id="negotiationGateTip" class="text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-700">建议先完成表达意向</span>
+              <h3 class="text-base font-bold text-gray-900"><i class="fas fa-layer-group mr-2 text-cyan-600"></i>多方案对比</h3>
+              <span id="negotiationGateTip" class="text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-700">在条款工作台提交方案后，方案将出现在此处</span>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-              <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-xs text-gray-500">融资金额</p><p id="negAmount" class="font-semibold text-gray-800">--</p></div>
-              <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-xs text-gray-500">分成比例</p><p id="negShare" class="font-semibold text-gray-800">--</p></div>
-              <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-xs text-gray-500">APR</p><p id="negApr" class="font-semibold text-gray-800">--</p></div>
-              <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-xs text-gray-500">合作期限</p><p id="negTerm" class="font-semibold text-gray-800">--</p></div>
+            <div id="negProposalGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <p id="negProposalEmpty" class="text-sm text-gray-400 col-span-full py-6 text-center">暂无方案，请在条款工作台中提交方案草稿。</p>
             </div>
-            <div class="mt-3">
-              <label class="block text-xs text-gray-500 mb-1">提案备注</label>
-              <textarea id="negProposalNote" rows="2" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="补充本次方案核心诉求"></textarea>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-              <button onclick="saveNegotiationDraft('A')" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">保存草稿A</button>
-              <button onclick="saveNegotiationDraft('B')" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">保存草稿B</button>
-              <button onclick="saveNegotiationDraft('C')" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">保存草稿C</button>
-              <button onclick="submitNegotiationProposalFromCurrent()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700">提交当前方案</button>
-            </div>
-          </div>
-
-          <div class="bg-white rounded-2xl border border-gray-100 p-5">
-            <h3 class="text-base font-bold text-gray-900 mb-3"><i class="fas fa-layer-group mr-2 text-cyan-600"></i>多方案对比（A/B/C）</h3>
-            <div id="negDraftCompare" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
           </div>
 
           <div class="bg-white rounded-2xl border border-gray-100 p-5">
@@ -748,6 +730,56 @@ export const MAIN_HTML = `
             <h3 class="text-base font-bold text-gray-900 mb-3"><i class="fas fa-file-export mr-2 text-cyan-600"></i>合约通输出预览</h3>
             <pre id="negContractPayloadBox" class="p-3 rounded-xl bg-gray-50 border border-gray-100 text-[11px] leading-5 text-gray-600 whitespace-pre-wrap">尚未达成条款，暂无输出。</pre>
             <p class="text-[11px] text-gray-400 mt-2">约束：仅公共参数会流向合约通，私有预测与派生指标不会外传。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 方案详情弹窗 -->
+      <div id="proposalDetailOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)closeProposalDetail()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto mx-4">
+          <div class="sticky top-0 bg-white border-b border-gray-100 p-4 flex items-center justify-between rounded-t-2xl">
+            <div>
+              <h3 id="pdTitle" class="text-sm font-bold text-gray-900">方案详情</h3>
+              <p id="pdMeta" class="text-xs text-gray-500 mt-0.5"></p>
+            </div>
+            <button onclick="closeProposalDetail()" class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="p-5 space-y-4">
+            <!-- 公共条款 -->
+            <div>
+              <h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-eye mr-1 text-gray-400"></i>公共条款</h4>
+              <div id="pdPublic" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm"></div>
+            </div>
+            <!-- 私有预测 -->
+            <div>
+              <h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-lock mr-1 text-indigo-400"></i>私有预测</h4>
+              <div id="pdPrivate" class="grid grid-cols-2 gap-2 text-sm"></div>
+            </div>
+            <!-- 派生指标 -->
+            <div>
+              <h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-calculator mr-1 text-amber-400"></i>派生指标</h4>
+              <div id="pdDerived" class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm"></div>
+            </div>
+            <!-- 编辑区（仅方案发起方可见） -->
+            <div id="pdEditSection" class="hidden border-t border-gray-100 pt-4">
+              <h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-pen mr-1 text-cyan-400"></i>修改方案</h4>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div><label class="block text-[11px] text-gray-500 mb-0.5">融资金额（万）</label><input id="pdEditAmount" type="number" min="1" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs"></div>
+                <div><label class="block text-[11px] text-gray-500 mb-0.5">分成比例（%）</label><input id="pdEditShare" type="number" step="0.1" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs"></div>
+                <div><label class="block text-[11px] text-gray-500 mb-0.5">APR（%）</label><input id="pdEditApr" type="number" step="0.1" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs"></div>
+                <div><label class="block text-[11px] text-gray-500 mb-0.5">合作期限（月）</label><input id="pdEditTerm" type="number" min="1" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs"></div>
+              </div>
+              <button id="pdSaveEditBtn" class="mt-2 w-full px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700">保存修改</button>
+            </div>
+            <!-- 沟通区 -->
+            <div class="border-t border-gray-100 pt-4">
+              <h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-comments mr-1 text-teal-400"></i>方案沟通</h4>
+              <div id="pdMessages" class="space-y-2 max-h-40 overflow-y-auto mb-2"></div>
+              <div class="flex gap-2">
+                <input id="pdMsgInput" type="text" class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs" placeholder="输入沟通内容...">
+                <button id="pdSendMsgBtn" class="px-4 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">发送</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

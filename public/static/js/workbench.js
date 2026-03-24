@@ -304,17 +304,42 @@
     function submitWorkbenchProposal() {
       if (!currentDeal) return;
       updateWorkbenchAndRecalc();
-      const state = ensureWorkbenchState();
-      const drafts = JSON.parse(localStorage.getItem('ec_workbenchDrafts') || '{}');
-      drafts[currentDeal.id] = {
-        savedAt: new Date().toISOString(),
-        publicAmountWan: state.publicAmountWan,
-        publicSharePct: state.publicSharePct,
-        publicAprPct: state.publicAprPct,
-        publicTermMonths: state.publicTermMonths
+      var state = ensureWorkbenchState();
+      if (!state) return;
+      var derived = workbenchDerivedByDeal[currentDeal.id] || computeWorkbenchDerived(state);
+      var negState = ensureNegotiationState();
+      if (!negState) return;
+      var proposal = {
+        id: 'P_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        createdAt: new Date().toISOString(),
+        perspective: currentPerspective || 'investor',
+        actor: (currentUser && (currentUser.displayName || currentUser.username)) || (currentPerspective === 'financer' ? '融资方' : '投资方'),
+        publicTerms: {
+          amountWan: state.publicAmountWan,
+          sharePct: state.publicSharePct,
+          aprPct: state.publicAprPct,
+          termMonths: state.publicTermMonths
+        },
+        privateData: {
+          revenueWan: state.privateRevenueWan,
+          source: state.privateSource
+        },
+        derivedData: {
+          monthlyPaybackWan: derived.monthlyPaybackWan,
+          suggestedAmountWan: derived.suggestedAmountWan,
+          suggestedSharePct: derived.suggestedSharePct,
+          touchMonths: derived.touchMonths,
+          totalPaybackWan: derived.totalPaybackWan,
+          actualAprPct: derived.actualAprPct,
+          recoveryMultiple: derived.recoveryMultiple
+        },
+        status: 'draft',
+        messages: []
       };
-      localStorage.setItem('ec_workbenchDrafts', JSON.stringify(drafts));
-      showToast('success', '方案草稿已保存', '公共参数已记录，可在谈判Tab继续提交。');
+      negState.proposals.unshift(proposal);
+      saveNegotiationState();
+      pushTimelineEvent('proposal_submitted', (proposal.actor) + ' 提交方案 ' + proposal.id, proposal.publicTerms);
+      showToast('success', '方案已提交', '方案编号：' + proposal.id + '，可在谈判Tab查看多方案对比。');
     }
 
     function refreshWorkbenchPrefill() {
