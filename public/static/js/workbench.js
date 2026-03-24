@@ -110,23 +110,34 @@
     function recalcWorkbench() {
       const state = ensureWorkbenchState();
       if (!state || !currentDeal) return;
-      // 自动推算合作期限
-      state.publicTermMonths = computeAutoTermMonths(state);
+
+      // 第一轮：先用临时期限算出触达月数
+      const derived = computeWorkbenchDerived(state);
+
+      // 自动推算合作期限 = 触达月数 × 4（优先用模型预估营业额，回退融资方预估）
+      var autoTerm = computeAutoTermMonths(state);
+      // 如果派生触达月数有效，直接用 触达月数 × 4（保证显示一致性）
+      if (Number.isFinite(derived.touchMonths) && derived.touchMonths > 0) {
+        autoTerm = Math.max(1, Math.round(derived.touchMonths * 4));
+      }
+      state.publicTermMonths = autoTerm;
       var termEl = document.getElementById('wbTerm');
       if (termEl) termEl.value = String(state.publicTermMonths);
       saveWorkbenchState();
-      const derived = computeWorkbenchDerived(state);
-      workbenchDerivedByDeal[currentDeal.id] = derived;
 
-      setText('wbMonthlyPayback', formatWan(derived.monthlyPaybackWan));
-      setText('wbSuggestAmount', formatWan(derived.suggestedAmountWan));
-      setText('wbSuggestShare', formatPct(derived.suggestedSharePct));
-      setText('wbTouchMonths', formatMonths(derived.touchMonths));
-      setText('wbTotalPayback', formatWan(derived.totalPaybackWan));
-      setText('wbActualApr', formatPct(derived.actualAprPct));
-      setText('wbRecoveryMultiple', Number.isFinite(derived.recoveryMultiple) ? derived.recoveryMultiple.toFixed(2) + 'x' : '--');
+      // 第二轮：用最终期限重算派生指标（建议金额/比例依赖期限）
+      const finalDerived = computeWorkbenchDerived(state);
+      workbenchDerivedByDeal[currentDeal.id] = finalDerived;
 
-      if (derived.touchDen <= 0) {
+      setText('wbMonthlyPayback', formatWan(finalDerived.monthlyPaybackWan));
+      setText('wbSuggestAmount', formatWan(finalDerived.suggestedAmountWan));
+      setText('wbSuggestShare', formatPct(finalDerived.suggestedSharePct));
+      setText('wbTouchMonths', formatMonths(finalDerived.touchMonths));
+      setText('wbTotalPayback', formatWan(finalDerived.totalPaybackWan));
+      setText('wbActualApr', formatPct(finalDerived.actualAprPct));
+      setText('wbRecoveryMultiple', Number.isFinite(finalDerived.recoveryMultiple) ? finalDerived.recoveryMultiple.toFixed(2) + 'x' : '--');
+
+      if (finalDerived.touchDen <= 0) {
         setText('wbFormulaHint', '公式状态：当前参数下无法触达回本（分母<=0），建议提高分成比例或降低融资金额。');
       } else {
         setText('wbFormulaHint', '公式状态：已基于当前公共条款与私有预测完成倒推/正推计算。');
