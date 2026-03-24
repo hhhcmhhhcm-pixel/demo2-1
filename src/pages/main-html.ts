@@ -563,20 +563,18 @@ export const MAIN_HTML = `
             <div class="space-y-3">
               <div>
                 <label class="block text-xs text-gray-500 mb-1">预测月均营业额来源</label>
-                <select id="wbRevenueSource" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" onchange="updateWorkbenchAndRecalc()">
-                  <option value="system">系统预估</option>
+                <select id="wbRevenueSource" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" onchange="onWbSourceChange()">
+                  <option value="system">模型预估</option>
                   <option value="borrower">融资方预估</option>
                   <option value="self">自行填写</option>
-                  <option value="research">做功课预估</option>
                 </select>
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">预测月均营业额（万）</label>
-                <input id="wbRevenue" type="number" step="0.1" min="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
+                <input id="wbRevenue" type="number" step="0.1" min="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="onWbRevenueDirectInput()">
               </div>
-              <div class="grid grid-cols-2 gap-2">
-                <button onclick="useResearchForecast()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700">使用做功课预估</button>
-                <button onclick="updateWorkbenchAndRecalc()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">刷新计算</button>
+              <div>
+                <button onclick="updateWorkbenchAndRecalc()" class="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">刷新计算</button>
               </div>
               <p class="text-[11px] text-gray-400">提示：私有预测不会向融资方或下游系统透出。</p>
             </div>

@@ -10,7 +10,7 @@
         publicAprPct: 14,
         publicTermMonths: parseInt(currentDeal.period, 10) || 24,
         privateRevenueWan: Number(defaultRevenue.toFixed(1)),
-        privateSource: savedResearch?.predictedMonthlyRevenue ? 'research' : 'system'
+        privateSource: 'system'
       };
       saveWorkbenchState();
       return workbenchByDeal[dealId];
@@ -113,7 +113,9 @@
       if (apr) apr.value = String(state.publicAprPct);
       if (term) term.value = String(state.publicTermMonths);
       if (revenue) revenue.value = String(state.privateRevenueWan);
-      if (source) source.value = state.privateSource;
+      // 兼容旧数据：如果 source 是 research，映射到 self
+      const src = state.privateSource === 'research' ? 'self' : state.privateSource;
+      if (source) source.value = src;
       recalcWorkbench();
     }
 
@@ -131,6 +133,64 @@
       const sourceVal = document.getElementById('wbRevenueSource')?.value || state.privateSource;
       state.privateSource = sourceVal;
       saveWorkbenchState();
+      recalcWorkbench();
+    }
+
+    // 切换来源时，从营业额预估工作台读取对应数值
+    function onWbSourceChange() {
+      const state = ensureWorkbenchState();
+      if (!state || !currentDeal) return;
+      const source = document.getElementById('wbRevenueSource')?.value;
+      if (!source) return;
+
+      const fcState = (typeof forecastByDeal !== 'undefined') ? forecastByDeal[currentDeal.id] : null;
+      let value = 0;
+
+      if (source === 'system' && fcState && fcState.systemMonthly && fcState.systemMonthly.length > 0) {
+        value = fcState.systemMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
+      } else if (source === 'borrower' && fcState && fcState.borrowerMonthly && fcState.borrowerMonthly.length > 0) {
+        value = fcState.borrowerMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
+      } else if (source === 'self' && fcState && fcState.selectedSource === 'self' && fcState.selectedValue > 0) {
+        value = fcState.selectedValue;
+      }
+
+      const revenueEl = document.getElementById('wbRevenue');
+      if (revenueEl) revenueEl.value = value > 0 ? value.toFixed(1) : '0';
+
+      state.privateSource = source;
+      state.privateRevenueWan = value > 0 ? +value.toFixed(1) : 0;
+      saveWorkbenchState();
+      recalcWorkbench();
+    }
+
+    // 用户直接修改数值时：自动切到"自行填写"，并同步到营业额预估工作台快捷模式
+    function onWbRevenueDirectInput() {
+      const state = ensureWorkbenchState();
+      if (!state || !currentDeal) return;
+
+      // 自动切换来源到"自行填写"
+      const sourceEl = document.getElementById('wbRevenueSource');
+      if (sourceEl && sourceEl.value !== 'self') {
+        sourceEl.value = 'self';
+      }
+      state.privateSource = 'self';
+
+      const val = parseWanValue(document.getElementById('wbRevenue')?.value);
+      state.privateRevenueWan = val > 0 ? +val.toFixed(1) : 0;
+      saveWorkbenchState();
+
+      // 同步到营业额预估工作台（快捷填写模式）
+      if (val > 0 && typeof forecastByDeal !== 'undefined' && typeof ensureForecastState === 'function') {
+        const fcState = ensureForecastState(currentDeal);
+        if (fcState) {
+          fcState.selfMode = 'quick';
+          fcState.selfQuickValue = +val.toFixed(1);
+          fcState.selectedSource = 'self';
+          fcState.selectedValue = +val.toFixed(1);
+          saveForecastState();
+        }
+      }
+
       recalcWorkbench();
     }
 
@@ -174,21 +234,6 @@
       if (term) term.value = Math.max(1, Math.round(derived.touchMonths)).toString();
       updateWorkbenchAndRecalc();
       showToast('success', '已应用正推触达月数', '公共合作期限已同步为触达月数。');
-    }
-
-    function useResearchForecast() {
-      if (!currentDeal) return;
-      const saved = researchInputsByDeal[currentDeal.id];
-      if (!saved || !saved.predictedMonthlyRevenue) {
-        showToast('warning', '无可用预估', '请先在做功课中完成营业额预估。');
-        return;
-      }
-      const revenue = document.getElementById('wbRevenue');
-      const source = document.getElementById('wbRevenueSource');
-      if (revenue) revenue.value = saved.predictedMonthlyRevenue.toFixed(1);
-      if (source) source.value = 'research';
-      updateWorkbenchAndRecalc();
-      showToast('success', '已带入做功课预估', '私有预测月营收已更新。');
     }
 
     function submitWorkbenchProposal() {
