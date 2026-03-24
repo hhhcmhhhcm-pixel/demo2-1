@@ -471,8 +471,8 @@ export const MAIN_HTML = `
 
           <div class="bg-white rounded-2xl border border-gray-100 p-4">
             <div class="flex items-center justify-between mb-3">
-              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-upload mr-1.5 text-cyan-500"></i>融资方提交预估</h4>
-              <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-50 text-cyan-600">只读 · 3年</span>
+              <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-upload mr-1.5 text-cyan-500"></i>融资方预估</h4>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-50 text-cyan-600">参与通内 · 3年</span>
             </div>
             <div id="fcBorrowerInfo" class="space-y-2">
               <p class="text-xs text-gray-400">选择项目后显示</p>
@@ -543,18 +543,20 @@ export const MAIN_HTML = `
               <div>
                 <label class="block text-xs text-gray-500 mb-1">融资金额（万）</label>
                 <input id="wbAmount" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
+                <button onclick="applySuggestedAmount()" class="w-full mt-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 hover:text-amber-700">按照分成比例推算融资金额</button>
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">分成比例（%）</label>
                 <input id="wbShare" type="number" step="0.1" min="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
+                <button onclick="applySuggestedShare()" class="w-full mt-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 hover:text-amber-700">按照融资金额推算分成比例</button>
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">YITO封顶APR（%）</label>
                 <input id="wbApr" type="number" step="0.1" min="0" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
               </div>
               <div>
-                <label class="block text-xs text-gray-500 mb-1">合作期限（月）</label>
-                <input id="wbTerm" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
+                <label class="block text-xs text-gray-500 mb-1">合作期限（月）<span class="text-gray-400 ml-1">自动推算</span></label>
+                <input id="wbTerm" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed" disabled>
               </div>
               <button onclick="submitWorkbenchProposal()" class="w-full mt-1 px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">提交方案（草稿）</button>
             </div>
@@ -568,20 +570,15 @@ export const MAIN_HTML = `
             <div class="space-y-3">
               <div>
                 <label class="block text-xs text-gray-500 mb-1">预测月均营业额来源</label>
-                <select id="wbRevenueSource" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" onchange="updateWorkbenchAndRecalc()">
-                  <option value="system">系统预估</option>
+                <select id="wbRevenueSource" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" onchange="onWbSourceChange()">
+                  <option value="system">模型预估</option>
                   <option value="borrower">融资方预估</option>
                   <option value="self">自行填写</option>
-                  <option value="research">做功课预估</option>
                 </select>
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">预测月均营业额（万）</label>
-                <input id="wbRevenue" type="number" step="0.1" min="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <button onclick="useResearchForecast()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700">使用做功课预估</button>
-                <button onclick="updateWorkbenchAndRecalc()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">刷新计算</button>
+                <input id="wbRevenue" type="number" step="0.1" min="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="onWbRevenueDirectInput()">
               </div>
               <p class="text-[11px] text-gray-400">提示：私有预测不会向融资方或下游系统透出。</p>
             </div>
@@ -600,11 +597,6 @@ export const MAIN_HTML = `
               <div class="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100"><span class="text-gray-500">YITO触达总回款</span><span id="wbTotalPayback" class="font-semibold text-gray-800">--</span></div>
               <div class="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100"><span class="text-gray-500">实际APR</span><span id="wbActualApr" class="font-semibold text-gray-800">--</span></div>
               <div class="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-100"><span class="text-gray-500">回收倍数</span><span id="wbRecoveryMultiple" class="font-semibold text-gray-800">--</span></div>
-            </div>
-            <div class="grid grid-cols-1 gap-2 mt-3">
-              <button onclick="applySuggestedAmount()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">按公式倒推金额</button>
-              <button onclick="applySuggestedShare()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">按公式倒推比例</button>
-              <button onclick="applyForwardTouchMonths()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">按公式正推触达月数</button>
             </div>
             <p id="wbFormulaHint" class="text-[11px] text-gray-400 mt-2">公式状态：等待输入参数。</p>
           </div>
