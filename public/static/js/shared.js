@@ -133,8 +133,6 @@
       if (kybHintLine) kybHintLine.style.display = isFinancer ? 'none' : '';
       setDashboardViewMode(dashboardViewMode);
 
-      // ---- Workbench panel: keep 3-column layout for both perspectives ----
-
       // ---- Intent tab: full width for financer (response section only) ----
       var intentGrid = document.querySelector('#sessionTab-intent > div');
       if (intentGrid) {

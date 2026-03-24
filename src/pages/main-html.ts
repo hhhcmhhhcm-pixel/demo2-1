@@ -563,7 +563,7 @@ export const MAIN_HTML = `
                 <label class="block text-xs text-gray-500 mb-1">合作期限（月）<span class="text-gray-400 ml-1">自动推算</span></label>
                 <input id="wbTerm" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed" disabled>
               </div>
-              <button onclick="submitWorkbenchProposal()" class="investor-only w-full mt-1 px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">提交方案（草稿）</button>
+              <button onclick="submitWorkbenchProposal()" class="w-full mt-1 px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">提交方案（草稿）</button>
             </div>
           </div>
 
