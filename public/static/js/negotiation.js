@@ -326,10 +326,14 @@
         var roleName = isFinancer ? '融资方' : '投资方';
         var actions = [];
         if (p.status === 'draft' || p.status === 'pending') {
+          var isSender = p.perspective === (currentPerspective || 'investor');
           actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'accept\')" class="px-2 py-1 text-[11px] rounded bg-emerald-600 text-white">接受</button>');
           actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'reject\')" class="px-2 py-1 text-[11px] rounded bg-rose-600 text-white">拒绝</button>');
-          actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'counter\')" class="px-2 py-1 text-[11px] rounded bg-cyan-600 text-white">反提案</button>');
-          if (p.perspective === (currentPerspective || 'investor')) {
+          // 反提案仅接收方可使用
+          if (!isSender) {
+            actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'counter\')" class="px-2 py-1 text-[11px] rounded bg-cyan-600 text-white">反提案</button>');
+          }
+          if (isSender) {
             actions.push('<button onclick="withdrawNegotiationProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700">撤回</button>');
           }
         } else if (p.status === 'accepted') {
@@ -443,14 +447,87 @@
       var ea = document.getElementById('counterAmount');
       var es = document.getElementById('counterShare');
       var ep = document.getElementById('counterApr');
-      var et = document.getElementById('counterTerm');
       if (ea) ea.value = t.amountWan || '';
       if (es) es.value = t.sharePct || '';
       if (ep) ep.value = t.aprPct || '';
-      if (et) et.value = t.termMonths || '';
+      recalcCounterTerm();
+
+      // 填充当前条款工作台方案视图
+      renderCounterWbView();
 
       var btn = document.getElementById('counterSubmitBtn');
       if (btn) btn.onclick = function() { submitCounterProposal(); };
+    }
+
+    // 反提案弹窗内自动推算合作期限（与条款工作台同逻辑）
+    function recalcCounterTerm() {
+      var ea = document.getElementById('counterAmount');
+      var es = document.getElementById('counterShare');
+      var ep = document.getElementById('counterApr');
+      var et = document.getElementById('counterTerm');
+      if (!et || !currentDeal) return;
+
+      var amount = parseFloat(ea ? ea.value : '') || 0;
+      var share = parseFloat(es ? es.value : '') || 0;
+      var apr = parseFloat(ep ? ep.value : '') || 0;
+
+      // 用模型/融资方预估营业额计算触达月数 × 4（同 computeAutoTermMonths 逻辑）
+      var fcState = (typeof ensureForecastState === 'function') ? ensureForecastState(currentDeal) : null;
+      var modelRevenue = 0;
+      if (fcState && fcState.systemMonthly && fcState.systemMonthly.length > 0) {
+        modelRevenue = fcState.systemMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
+      }
+      if (modelRevenue <= 0 && fcState && fcState.borrowerMonthly && fcState.borrowerMonthly.length > 0) {
+        modelRevenue = fcState.borrowerMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
+      }
+
+      var term = 24;
+      if (modelRevenue > 0 && amount > 0 && share > 0) {
+        var monthlyPayback = modelRevenue * share / 100;
+        var touchDen = monthlyPayback - amount * apr / 100 / 12;
+        if (touchDen > 0) {
+          term = Math.max(1, Math.round((amount / touchDen) * 4));
+        }
+      }
+      et.value = String(term);
+    }
+
+    // 渲染当前条款工作台方案到反提案弹窗
+    function renderCounterWbView() {
+      var wbState = ensureWorkbenchState();
+      var derived = wbState ? (workbenchDerivedByDeal[currentDeal.id] || computeWorkbenchDerived(wbState)) : null;
+      var srcMap = { system: '模型预估', borrower: '融资方预估', self: '自行填写' };
+
+      var pubEl = document.getElementById('counterWbPublic');
+      if (pubEl && wbState) {
+        pubEl.innerHTML =
+          counterMiniCell('金额', wbState.publicAmountWan.toFixed(1) + '万') +
+          counterMiniCell('比例', wbState.publicSharePct.toFixed(2) + '%') +
+          counterMiniCell('APR', wbState.publicAprPct.toFixed(2) + '%') +
+          counterMiniCell('期限', wbState.publicTermMonths + '月');
+      }
+
+      var privEl = document.getElementById('counterWbPrivate');
+      if (privEl && wbState) {
+        privEl.innerHTML =
+          counterMiniCell('月均营业额', wbState.privateRevenueWan.toFixed(1) + '万') +
+          counterMiniCell('来源', srcMap[wbState.privateSource] || '--');
+      }
+
+      var derEl = document.getElementById('counterWbDerived');
+      if (derEl && derived) {
+        derEl.innerHTML =
+          counterMiniCell('月回款', fmtWanOrDash(derived.monthlyPaybackWan)) +
+          counterMiniCell('触达月数', fmtMonOrDash(derived.touchMonths)) +
+          counterMiniCell('总回款', fmtWanOrDash(derived.totalPaybackWan)) +
+          counterMiniCell('实际APR', fmtPctOrDash(derived.actualAprPct)) +
+          counterMiniCell('回收倍数', Number.isFinite(derived.recoveryMultiple) ? derived.recoveryMultiple.toFixed(2) + 'x' : '--') +
+          counterMiniCell('建议融资上限', fmtWanOrDash(derived.suggestedAmountWan));
+      }
+    }
+
+    function counterMiniCell(label, value) {
+      return '<div class="p-1.5 rounded bg-gray-50 border border-gray-100"><span class="text-[10px] text-gray-400">' + label + '</span><br><span class="font-semibold text-gray-700">' + value + '</span></div>';
     }
 
     function closeCounterOverlay() {
