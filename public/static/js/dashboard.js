@@ -69,7 +69,7 @@
           ? (d.companyName || d.originator || '融资主体') + ' · ' + d.industry + ' · ' + d.location
           : (d.brandName || '品牌') + ' · ' + d.industry + ' · ' + d.location;
 
-        return '<div class="project-card group cursor-pointer animate-fade-in" onclick="openDetail(\'' + d.id + '\')">' +
+        return '<div class="project-card group cursor-pointer animate-fade-in" onclick="handleDealCardClick(\'' + d.id + '\')">' +
           // Header: name + status
           '<div class="flex items-center justify-between mb-2">' +
             '<div class="flex items-center space-x-2 min-w-0">' +
@@ -108,6 +108,28 @@
           '</div>' +
         '</div>';
       }).join('');
+    }
+
+    function handleDealCardClick(id) {
+      const deal = allDeals.find(d => d.id === id) || dealsList.find(d => d.id === id);
+      if (!deal) return;
+      if (dashboardViewMode === 'brand') {
+        const keyword = deal.brandName || deal.name || '';
+        const searchInput = document.getElementById('dealSearch');
+        if (searchInput) searchInput.value = keyword;
+        const statusSel = document.getElementById('filterStatus');
+        if (statusSel) statusSel.value = 'all';
+        const industrySel = document.getElementById('filterIndustry');
+        if (industrySel) industrySel.value = 'all';
+        setDashboardViewMode('store');
+        if (keyword) {
+          showToast('info', '已切换门店视图', '已按品牌“' + keyword + '”展示对应门店');
+        } else {
+          showToast('info', '已切换门店视图', '已应用品牌筛选');
+        }
+        return;
+      }
+      openDetail(id);
     }
 
     function showAllDeals() {
