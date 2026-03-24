@@ -52,7 +52,7 @@
         }
       }
       if (icon) icon.className = isFinancer ? 'fas fa-rotate-left text-xs' : 'fas fa-arrows-rotate text-xs';
-      if (text) text.textContent = isFinancer ? '返回投资者视角' : '切换融资方视角';
+      if (text) text.textContent = isFinancer ? '切换投资方视角' : '切换融资方视角';
 
       // ---- Detail view toggle button ----
       var dBtn = document.getElementById('detailPerspectiveBtn');
@@ -70,7 +70,7 @@
         }
       }
       if (dIcon) dIcon.className = isFinancer ? 'fas fa-rotate-left text-xs' : 'fas fa-arrows-rotate text-xs';
-      if (dText) dText.textContent = isFinancer ? '返回投资者视角' : '切换融资方视角';
+      if (dText) dText.textContent = isFinancer ? '切换投资方视角' : '切换融资方视角';
 
       // ---- Detail view: research tab layout (financer: full width left panel) ----
       var researchLeft = document.getElementById('researchLeftPanel');
@@ -133,13 +133,7 @@
       if (kybHintLine) kybHintLine.style.display = isFinancer ? 'none' : '';
       setDashboardViewMode(dashboardViewMode);
 
-      // ---- Workbench panel: single column for financer (only public terms visible) ----
-      var wbPanel = document.getElementById('workbenchPanel');
-      if (wbPanel) {
-        wbPanel.classList.toggle('lg:grid-cols-3', !isFinancer);
-        wbPanel.classList.toggle('lg:grid-cols-1', isFinancer);
-        wbPanel.classList.toggle('max-w-md', isFinancer);
-      }
+      // ---- Workbench panel: keep 3-column layout for both perspectives ----
 
       // ---- Intent tab: full width for financer (response section only) ----
       var intentGrid = document.querySelector('#sessionTab-intent > div');

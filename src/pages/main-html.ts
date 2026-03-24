@@ -548,12 +548,12 @@ export const MAIN_HTML = `
               <div>
                 <label class="block text-xs text-gray-500 mb-1">融资金额（万）</label>
                 <input id="wbAmount" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
-                <button onclick="applySuggestedAmount()" class="investor-only w-full mt-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 hover:text-amber-700">按照分成比例推算融资金额</button>
+                <button onclick="applySuggestedAmount()" class="w-full mt-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 hover:text-amber-700">按照分成比例推算融资金额</button>
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">分成比例（%）</label>
                 <input id="wbShare" type="number" step="0.1" min="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
-                <button onclick="applySuggestedShare()" class="investor-only w-full mt-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 hover:text-amber-700">按照融资金额推算分成比例</button>
+                <button onclick="applySuggestedShare()" class="w-full mt-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 hover:text-amber-700">按照融资金额推算分成比例</button>
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">YITO封顶APR（%）</label>
@@ -567,7 +567,7 @@ export const MAIN_HTML = `
             </div>
           </div>
 
-          <div class="bg-white rounded-2xl border border-gray-100 p-4 investor-only">
+          <div class="bg-white rounded-2xl border border-gray-100 p-4">
             <div class="flex items-center justify-between mb-3">
               <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-lock mr-1.5 text-indigo-500"></i>私有预测区</h4>
               <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600">仅自己可见</span>
@@ -589,7 +589,7 @@ export const MAIN_HTML = `
             </div>
           </div>
 
-          <div class="bg-white rounded-2xl border border-gray-100 p-4 investor-only">
+          <div class="bg-white rounded-2xl border border-gray-100 p-4">
             <div class="flex items-center justify-between mb-3">
               <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-function mr-1.5 text-amber-500"></i>派生指标区</h4>
               <span class="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700">仅自己可见</span>
