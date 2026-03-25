@@ -5,22 +5,21 @@
       const savedResearch = researchInputsByDeal[dealId];
       const defaultRevenue = savedResearch?.predictedMonthlyRevenue || parseWanValue(currentDeal.monthlyRevenue) || 100;
       workbenchByDeal[dealId] = {
-        publicAmountWan: Number((currentDeal.amount / 10000).toFixed(1)),
-        publicSharePct: parseFloat(String(currentDeal.revenueShare || '').replace('%', '')) || 10,
-        publicAprPct: 14,
-        publicTermMonths: 24,
+        publicAmountWan: null,
+        publicSharePct: null,
+        publicAprPct: null,
+        publicTermMonths: null,
         privateRevenueWan: Number(defaultRevenue.toFixed(1)),
         privateSource: 'system'
       };
-      // 初始化时自动推算合作期限
-      workbenchByDeal[dealId].publicTermMonths = computeAutoTermMonths(workbenchByDeal[dealId]);
       saveWorkbenchState();
       return workbenchByDeal[dealId];
     }
 
     // 自动推算合作期限：触达月数 × 4，优先用模型预估，无模型则用融资方预估
     function computeAutoTermMonths(state) {
-      if (!currentDeal || !state) return 24;
+      if (!currentDeal || !state) return null;
+      if (state.publicAmountWan == null || state.publicSharePct == null || state.publicAprPct == null) return null;
       var fcState = (typeof ensureForecastState === 'function') ? ensureForecastState(currentDeal) : null;
       var modelRevenue = 0;
       // 优先用模型预估
@@ -31,7 +30,7 @@
       if (modelRevenue <= 0 && fcState && fcState.borrowerMonthly && fcState.borrowerMonthly.length > 0) {
         modelRevenue = fcState.borrowerMonthly.slice(0, 12).reduce(function(a, b) { return a + b; }, 0) / 12;
       }
-      if (modelRevenue <= 0) return 24;
+      if (modelRevenue <= 0) return null;
 
       var amountWan = state.publicAmountWan;
       var sharePct = state.publicSharePct;
@@ -43,7 +42,7 @@
         var touch = amountWan / touchDen;
         return Math.max(1, Math.round(touch * 4));
       }
-      return 24;
+      return null;
     }
 
     function formatWan(v) {
@@ -64,10 +63,10 @@
     }
 
     function computeWorkbenchDerived(state) {
-      const amountWan = state.publicAmountWan;
-      const sharePct = state.publicSharePct;
-      const aprPct = state.publicAprPct;
-      const termMonths = state.publicTermMonths;
+      const amountWan = state.publicAmountWan != null ? state.publicAmountWan : NaN;
+      const sharePct = state.publicSharePct != null ? state.publicSharePct : NaN;
+      const aprPct = state.publicAprPct != null ? state.publicAprPct : NaN;
+      const termMonths = state.publicTermMonths != null ? state.publicTermMonths : NaN;
       const revenueWan = state.privateRevenueWan;
 
       const shareRatio = sharePct / 100;
@@ -111,6 +110,27 @@
       const state = ensureWorkbenchState();
       if (!state || !currentDeal) return;
 
+      var hasPublicInput = state.publicAmountWan != null && state.publicSharePct != null && state.publicAprPct != null;
+
+      if (!hasPublicInput) {
+        // 公共条款未填完，派生指标全部显示占位符
+        state.publicTermMonths = null;
+        var termEl = document.getElementById('wbTerm');
+        if (termEl) termEl.value = '';
+        saveWorkbenchState();
+        var emptyDerived = { monthlyPaybackWan: NaN, suggestedAmountWan: NaN, suggestedSharePct: NaN, touchMonths: NaN, totalPaybackWan: NaN, actualAprPct: NaN, recoveryMultiple: NaN, touchDen: NaN };
+        workbenchDerivedByDeal[currentDeal.id] = emptyDerived;
+        setText('wbMonthlyPayback', '--');
+        setText('wbSuggestAmount', '--');
+        setText('wbSuggestShare', '--');
+        setText('wbTouchMonths', '--');
+        setText('wbTotalPayback', '--');
+        setText('wbActualApr', '--');
+        setText('wbRecoveryMultiple', '--');
+        setText('wbFormulaHint', '请先填写公共条款区的融资金额、分成比例和封顶APR。');
+        return;
+      }
+
       // 第一轮：先用临时期限算出触达月数
       const derived = computeWorkbenchDerived(state);
 
@@ -122,7 +142,7 @@
       }
       state.publicTermMonths = autoTerm;
       var termEl = document.getElementById('wbTerm');
-      if (termEl) termEl.value = String(state.publicTermMonths);
+      if (termEl) termEl.value = state.publicTermMonths != null ? String(state.publicTermMonths) : '';
       saveWorkbenchState();
 
       // 第二轮：用最终期限重算派生指标（建议金额/比例依赖期限）
@@ -154,10 +174,10 @@
       var term = document.getElementById('wbTerm');
       var revenue = document.getElementById('wbRevenue');
       var source = document.getElementById('wbRevenueSource');
-      if (amount) amount.value = String(state.publicAmountWan);
-      if (share) share.value = String(state.publicSharePct);
-      if (apr) apr.value = String(state.publicAprPct);
-      if (term) term.value = String(state.publicTermMonths);
+      if (amount) amount.value = state.publicAmountWan != null ? String(state.publicAmountWan) : '';
+      if (share) share.value = state.publicSharePct != null ? String(state.publicSharePct) : '';
+      if (apr) apr.value = state.publicAprPct != null ? String(state.publicAprPct) : '';
+      if (term) term.value = state.publicTermMonths != null ? String(state.publicTermMonths) : '';
 
       // 兼容旧数据：如果 source 是 research，映射到 self
       var src = state.privateSource === 'research' ? 'self' : state.privateSource;
@@ -177,11 +197,14 @@
     function updateWorkbenchAndRecalc() {
       const state = ensureWorkbenchState();
       if (!state) return;
-      state.publicAmountWan = parseWanValue(document.getElementById('wbAmount')?.value || state.publicAmountWan);
-      const share = parseFloat(document.getElementById('wbShare')?.value || String(state.publicSharePct));
-      const apr = parseFloat(document.getElementById('wbApr')?.value || String(state.publicAprPct));
-      state.publicSharePct = Number.isFinite(share) ? share : state.publicSharePct;
-      state.publicAprPct = Number.isFinite(apr) ? apr : state.publicAprPct;
+      var amountVal = (document.getElementById('wbAmount')?.value || '').trim();
+      state.publicAmountWan = amountVal !== '' ? parseWanValue(amountVal) : null;
+      var shareVal = (document.getElementById('wbShare')?.value || '').trim();
+      var shareParsed = parseFloat(shareVal);
+      state.publicSharePct = shareVal !== '' && Number.isFinite(shareParsed) ? shareParsed : null;
+      var aprVal = (document.getElementById('wbApr')?.value || '').trim();
+      var aprParsed = parseFloat(aprVal);
+      state.publicAprPct = aprVal !== '' && Number.isFinite(aprParsed) ? aprParsed : null;
       state.privateRevenueWan = parseWanValue(document.getElementById('wbRevenue')?.value || state.privateRevenueWan);
       const sourceVal = document.getElementById('wbRevenueSource')?.value || state.privateSource;
       state.privateSource = sourceVal;
@@ -306,6 +329,10 @@
       updateWorkbenchAndRecalc();
       var state = ensureWorkbenchState();
       if (!state) return;
+      if (state.publicAmountWan == null || state.publicSharePct == null || state.publicAprPct == null) {
+        showToast('warning', '公共条款未填完', '请先填写融资金额、分成比例和封顶APR后再提交方案。');
+        return;
+      }
       var derived = workbenchDerivedByDeal[currentDeal.id] || computeWorkbenchDerived(state);
       var negState = ensureNegotiationState();
       if (!negState) return;

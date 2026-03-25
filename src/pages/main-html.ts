@@ -547,21 +547,21 @@ export const MAIN_HTML = `
             <div class="space-y-3">
               <div>
                 <label class="block text-xs text-gray-500 mb-1">融资金额（万）</label>
-                <input id="wbAmount" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
+                <input id="wbAmount" type="number" min="1" placeholder="请输入融资金额" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
                 <button onclick="applySuggestedAmount()" class="w-full mt-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 hover:text-amber-700">按照分成比例推算融资金额</button>
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">分成比例（%）</label>
-                <input id="wbShare" type="number" step="0.1" min="0.1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
+                <input id="wbShare" type="number" step="0.1" min="0.1" placeholder="请输入分成比例" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
                 <button onclick="applySuggestedShare()" class="w-full mt-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 hover:text-amber-700">按照融资金额推算分成比例</button>
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">YITO封顶APR（%）</label>
-                <input id="wbApr" type="number" step="0.1" min="0" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
+                <input id="wbApr" type="number" step="0.1" min="0" placeholder="请输入封顶APR" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateWorkbenchAndRecalc()">
               </div>
               <div>
                 <label class="block text-xs text-gray-500 mb-1">合作期限（月）<span class="text-gray-400 ml-1">自动推算</span></label>
-                <input id="wbTerm" type="number" min="1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed" disabled>
+                <input id="wbTerm" type="number" min="1" placeholder="自动推算" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed" disabled>
               </div>
               <button onclick="submitWorkbenchProposal()" class="w-full mt-1 px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">提交方案（草稿）</button>
             </div>
