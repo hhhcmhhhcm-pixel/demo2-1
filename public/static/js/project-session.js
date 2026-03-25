@@ -117,15 +117,6 @@
           // 筛子评估结果（辅助）— 融资方视角不显示
           (!isFinancerView ? '<div class="bg-white rounded-2xl p-5 border border-gray-100"><h3 class="text-sm font-bold text-gray-800 mb-4"><i class="fas fa-filter mr-1.5 text-cyan-500"></i>筛子评估（辅助参考）</h3><div class="space-y-3">' + sieveResults + '</div>' +
           '<p class="text-xs text-gray-400 mt-3">说明：做功课阶段建议优先结合一页纸和同行参考，再用筛子结果做交叉验证。</p></div>' : '') +
-          // 项目流向
-          '<div class="bg-white rounded-2xl p-5 border border-gray-100"><h3 class="text-sm font-bold text-gray-800 mb-4"><i class="fas fa-route mr-1.5 text-amber-500"></i>项目流向</h3><div class="space-y-4">' +
-          [
-            { icon: 'fa-paper-plane', color: 'amber', title: '发起通 — 项目提交', desc: currentDeal.originator + ' · ' + currentDeal.originateDate },
-            { icon: 'fa-filter', color: 'cyan', title: '评估通 — AI筛选', desc: '通过 ' + (hasMatch ? currentDeal.matchScore + '% 匹配' : '基础审核') },
-            { icon: 'fa-book-open', color: 'teal', title: '参与通 — 做功课', desc: '一页纸 + 同行参考 + 营业额预估' },
-            { icon: 'fa-file-contract', color: 'gray', title: '条款通 → 合约通', desc: '确认参与后进入条款协商' }
-          ].map(t => '<div class="flex items-start space-x-3"><div class="w-8 h-8 rounded-lg bg-' + t.color + '-100 flex items-center justify-center flex-shrink-0"><i class="fas ' + t.icon + ' text-' + t.color + '-600 text-xs"></i></div><div><p class="text-sm font-medium text-gray-700">' + t.title + '</p><p class="text-xs text-gray-400">' + t.desc + '</p></div></div>').join('') +
-          '</div></div>' +
         '</div>';
 
       switchDetailView('onepager');
