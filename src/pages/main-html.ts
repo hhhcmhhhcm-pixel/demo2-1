@@ -742,11 +742,41 @@ export const MAIN_HTML = `
       <div class="max-w-3xl mx-auto space-y-4">
         <div class="bg-white rounded-2xl border border-gray-100 p-5">
           <h3 class="text-base font-bold text-gray-900 mb-2"><i class="fas fa-file-lines mr-2 text-indigo-600"></i>沟通备忘录</h3>
-          <p class="text-sm text-gray-500 mb-4">记录线下会谈、电话沟通等要点，支持上传待确认或直接确认。</p>
-          <textarea id="negMemoInput" rows="4" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="记录线下会谈要点或争议点"></textarea>
-          <div class="grid grid-cols-2 gap-2 mt-2">
-            <button onclick="submitNegotiationMemo('pending')" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">上传纪要（待确认）</button>
-            <button onclick="submitNegotiationMemo('confirmed')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">上传并确认纪要</button>
+          <p class="text-sm text-gray-500 mb-4">微信为主沟通，系统沉淀共识。请结构化记录并走确认流程。</p>
+          <p id="memoEditorHint" class="text-[11px] text-gray-400 mb-3">当前为新建模式。必填：议题、达成内容。</p>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">议题（必填）</label>
+              <input id="memoTopic" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：分成比例上限确认">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">达成内容（必填）</label>
+              <textarea id="memoAgreedContent" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="记录双方已达成的一致内容"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">边界条件</label>
+              <textarea id="memoBoundary" rows="2" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：仅适用于首批门店，超出需重新确认"></textarea>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">生效日期</label>
+                <input id="memoEffectiveDate" type="date" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">关联方案</label>
+                <select id="memoRelatedProposalId" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
+                  <option value="">未关联方案</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">摘要正文（可选）</label>
+              <textarea id="memoSummaryBody" rows="2" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="补充摘要或对外确认口径"></textarea>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <button onclick="saveMemoDraft()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">保存草稿</button>
+            <button onclick="submitMemoForConfirmation()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">提交确认</button>
           </div>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 p-5">

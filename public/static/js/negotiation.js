@@ -46,14 +46,171 @@
     function ensureNegotiationState() {
       if (!currentDeal) return null;
       const dealId = currentDeal.id;
-      if (negotiationByDeal[dealId]) return negotiationByDeal[dealId];
+      if (negotiationByDeal[dealId]) {
+        migrateMemoStateIfNeeded(negotiationByDeal[dealId]);
+        ensureMemoEditorState(negotiationByDeal[dealId]);
+        return negotiationByDeal[dealId];
+      }
       negotiationByDeal[dealId] = {
         proposals: [],
         memos: [],
+        memoEditor: { selectedMemoId: '' },
         invite: null
       };
+      migrateMemoStateIfNeeded(negotiationByDeal[dealId]);
       saveNegotiationState();
       return negotiationByDeal[dealId];
+    }
+
+    function ensureMemoEditorState(state) {
+      if (!state) return;
+      if (!state.memoEditor || typeof state.memoEditor !== 'object') {
+        state.memoEditor = { selectedMemoId: '' };
+      }
+      if (typeof state.memoEditor.selectedMemoId !== 'string') {
+        state.memoEditor.selectedMemoId = '';
+      }
+    }
+
+    function migrateMemoStateIfNeeded(state) {
+      if (!state || !Array.isArray(state.memos)) {
+        if (state) state.memos = [];
+        return;
+      }
+      var migrated = false;
+      var now = new Date().toISOString();
+      state.memos = state.memos.map(function(memo, idx) {
+        if (memo && Array.isArray(memo.versions)) {
+          if (typeof memo.currentVersion !== 'number' || memo.currentVersion < 1) {
+            memo.currentVersion = memo.versions.length || 1;
+            migrated = true;
+          }
+          if (!memo.status) {
+            memo.status = 'draft';
+            migrated = true;
+          }
+          if (!memo.id) {
+            memo.id = 'M_' + Date.now() + '_' + idx;
+            migrated = true;
+          }
+          return memo;
+        }
+        migrated = true;
+        var legacyStatus = memo && memo.status === 'confirmed' ? 'confirmed' : 'pending_confirmation';
+        var legacyAt = (memo && memo.at) || now;
+        var legacyContent = (memo && memo.content) || '';
+        return {
+          id: (memo && memo.id) || ('M_' + Date.now() + '_' + idx),
+          currentVersion: 1,
+          status: legacyStatus,
+          createdAt: legacyAt,
+          updatedAt: legacyAt,
+          versions: [{
+            version: 1,
+            createdAt: legacyAt,
+            updatedAt: legacyAt,
+            author: (currentUser && (currentUser.displayName || currentUser.username)) || '我方',
+            role: currentPerspective || 'investor',
+            topic: '历史纪要',
+            agreedContent: legacyContent,
+            boundary: '',
+            effectiveDate: '',
+            relatedProposalId: '',
+            summaryBody: legacyContent
+          }]
+        };
+      });
+      if (migrated) saveNegotiationState();
+    }
+
+    function getMemoCurrentVersion(memo) {
+      if (!memo || !Array.isArray(memo.versions) || memo.versions.length === 0) return null;
+      var v = memo.versions.find(function(item) { return item.version === memo.currentVersion; });
+      return v || memo.versions[memo.versions.length - 1];
+    }
+
+    function getMemoStatusMeta(status) {
+      var map = {
+        draft: { label: '草稿', cls: 'bg-gray-100 text-gray-600' },
+        pending_confirmation: { label: '待确认', cls: 'bg-amber-100 text-amber-700' },
+        confirmed: { label: '已确认', cls: 'bg-emerald-100 text-emerald-700' },
+        rejected: { label: '已拒绝', cls: 'bg-rose-100 text-rose-700' },
+        revised: { label: '已修订', cls: 'bg-indigo-100 text-indigo-700' }
+      };
+      return map[status] || { label: status || '未知', cls: 'bg-gray-100 text-gray-600' };
+    }
+
+    function renderMemoProposalOptions(state) {
+      var select = document.getElementById('memoRelatedProposalId');
+      if (!select || !state) return;
+      var current = select.value || '';
+      var proposals = state.proposals || [];
+      var html = '<option value="">未关联方案</option>';
+      html += proposals.map(function(p) {
+        var t = p.publicTerms || {};
+        var preview = Number.isFinite(t.amountWan) ? (Number(t.amountWan).toFixed(1) + '万') : '--';
+        return '<option value="' + p.id + '">' + p.id + ' · ' + preview + '</option>';
+      }).join('');
+      select.innerHTML = html;
+      select.value = current;
+    }
+
+    function getMemoFormData() {
+      return {
+        topic: (document.getElementById('memoTopic')?.value || '').trim(),
+        agreedContent: (document.getElementById('memoAgreedContent')?.value || '').trim(),
+        boundary: (document.getElementById('memoBoundary')?.value || '').trim(),
+        effectiveDate: (document.getElementById('memoEffectiveDate')?.value || '').trim(),
+        relatedProposalId: (document.getElementById('memoRelatedProposalId')?.value || '').trim(),
+        summaryBody: (document.getElementById('memoSummaryBody')?.value || '').trim()
+      };
+    }
+
+    function setMemoFormData(data) {
+      var source = data || {};
+      var topic = document.getElementById('memoTopic');
+      var agreedContent = document.getElementById('memoAgreedContent');
+      var boundary = document.getElementById('memoBoundary');
+      var effectiveDate = document.getElementById('memoEffectiveDate');
+      var relatedProposalId = document.getElementById('memoRelatedProposalId');
+      var summaryBody = document.getElementById('memoSummaryBody');
+      if (topic) topic.value = source.topic || '';
+      if (agreedContent) agreedContent.value = source.agreedContent || '';
+      if (boundary) boundary.value = source.boundary || '';
+      if (effectiveDate) effectiveDate.value = source.effectiveDate || '';
+      if (relatedProposalId) relatedProposalId.value = source.relatedProposalId || '';
+      if (summaryBody) summaryBody.value = source.summaryBody || '';
+    }
+
+    function updateMemoEditorHint(text) {
+      var hint = document.getElementById('memoEditorHint');
+      if (hint) hint.textContent = text;
+    }
+
+    function clearMemoForm() {
+      var state = ensureNegotiationState();
+      if (!state) return;
+      ensureMemoEditorState(state);
+      state.memoEditor.selectedMemoId = '';
+      setMemoFormData({});
+      updateMemoEditorHint('当前为新建模式。必填：议题、达成内容。');
+      saveNegotiationState();
+    }
+
+    function selectMemoForEdit(memoId) {
+      if (!currentDeal) return;
+      var state = ensureNegotiationState();
+      if (!state) return;
+      ensureMemoEditorState(state);
+      var memo = (state.memos || []).find(function(item) { return item.id === memoId; });
+      if (!memo) return;
+      var currentVersion = getMemoCurrentVersion(memo);
+      if (!currentVersion) return;
+      state.memoEditor.selectedMemoId = memoId;
+      setMemoFormData(currentVersion);
+      var statusMeta = getMemoStatusMeta(memo.status);
+      updateMemoEditorHint('当前编辑：' + memo.id + ' · V' + memo.currentVersion + ' · ' + statusMeta.label + '。');
+      saveNegotiationState();
     }
 
     function applyPublicTermsToWorkbench(terms) {
@@ -362,25 +519,123 @@
       var state = ensureNegotiationState();
       var list = document.getElementById('memoHistoryList');
       if (!list) return;
+      ensureMemoEditorState(state);
+      renderMemoProposalOptions(state);
       var memos = state.memos || [];
       if (memos.length === 0) {
         list.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无沟通纪要。</p>';
+        if (state.memoEditor.selectedMemoId) {
+          state.memoEditor.selectedMemoId = '';
+          setMemoFormData({});
+          updateMemoEditorHint('当前为新建模式。必填：议题、达成内容。');
+          saveNegotiationState();
+        }
         return;
       }
       list.innerHTML = memos.map(function(m) {
-        var time = m.at ? m.at.slice(0, 16).replace('T', ' ') : '';
-        var statusBadge = m.status === 'confirmed'
-          ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">已确认</span>'
-          : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">待确认</span>';
-        return '<div class="p-3 rounded-xl border border-indigo-100 bg-indigo-50">' +
-          '<div class="flex items-center justify-between mb-1">' +
-            '<span class="text-xs font-semibold text-indigo-700">纪要 · ' + m.id + '</span>' +
-            statusBadge +
+        var currentVersion = getMemoCurrentVersion(m);
+        var statusMeta = getMemoStatusMeta(m.status);
+        var time = (m.updatedAt || m.createdAt || (currentVersion && currentVersion.updatedAt) || '').slice(0, 16).replace('T', ' ');
+        var selected = state.memoEditor.selectedMemoId === m.id;
+        var summary = (currentVersion && currentVersion.summaryBody) || (currentVersion && currentVersion.agreedContent) || '';
+        var shortSummary = summary.length > 90 ? (summary.slice(0, 90) + '...') : summary;
+        return '<button onclick="selectMemoForEdit(\'' + m.id + '\')" class="w-full text-left p-3 rounded-xl border transition-colors ' + (selected ? 'border-indigo-300 bg-indigo-50' : 'border-indigo-100 bg-white hover:bg-indigo-50/40') + '">' +
+          '<div class="flex items-center justify-between mb-1.5">' +
+            '<div class="text-xs font-semibold text-indigo-700">纪要 · ' + m.id + ' · V' + m.currentVersion + '</div>' +
+            '<span class="text-[10px] px-1.5 py-0.5 rounded ' + statusMeta.cls + '">' + statusMeta.label + '</span>' +
           '</div>' +
-          '<p class="text-xs text-indigo-700 leading-relaxed">' + m.content + '</p>' +
-          '<p class="text-[10px] text-indigo-400 mt-1.5">' + time + '</p>' +
-        '</div>';
+          '<p class="text-xs text-gray-700 mb-1">议题：' + ((currentVersion && currentVersion.topic) || '--') + '</p>' +
+          '<p class="text-xs text-gray-600 leading-relaxed">' + (shortSummary || '无摘要') + '</p>' +
+          '<div class="text-[10px] text-gray-400 mt-1.5 flex items-center justify-between">' +
+            '<span>' + time + '</span>' +
+            '<span>' + ((currentVersion && currentVersion.relatedProposalId) ? ('关联方案：' + currentVersion.relatedProposalId) : '未关联方案') + '</span>' +
+          '</div>' +
+        '</button>';
       }).join('');
+
+      var selectedMemo = memos.find(function(item) { return item.id === state.memoEditor.selectedMemoId; });
+      if (!selectedMemo) {
+        setMemoFormData({});
+        updateMemoEditorHint('当前为新建模式。必填：议题、达成内容。');
+        return;
+      }
+      var selectedVersion = getMemoCurrentVersion(selectedMemo);
+      if (!selectedVersion) return;
+      setMemoFormData(selectedVersion);
+      var selectedMeta = getMemoStatusMeta(selectedMemo.status);
+      updateMemoEditorHint('当前编辑：' + selectedMemo.id + ' · V' + selectedMemo.currentVersion + ' · ' + selectedMeta.label + '。');
+    }
+
+    function validateMemoCoreFields(data) {
+      if (!data.topic || !data.agreedContent) {
+        showToast('warning', '请补充必填字段', '至少填写「议题」和「达成内容」');
+        return false;
+      }
+      return true;
+    }
+
+    function upsertMemoFromForm(targetStatus) {
+      if (!currentDeal) return null;
+      var state = ensureNegotiationState();
+      if (!state) return null;
+      ensureMemoEditorState(state);
+
+      var payload = getMemoFormData();
+      if (!validateMemoCoreFields(payload)) return null;
+
+      var now = new Date().toISOString();
+      var selectedId = state.memoEditor.selectedMemoId;
+      var memo = (state.memos || []).find(function(item) { return item.id === selectedId; });
+
+      if (!memo) {
+        memo = {
+          id: 'M_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          currentVersion: 1,
+          status: targetStatus,
+          createdAt: now,
+          updatedAt: now,
+          versions: []
+        };
+        state.memos.unshift(memo);
+      } else {
+        memo.currentVersion = (memo.currentVersion || 0) + 1;
+        memo.status = targetStatus;
+        memo.updatedAt = now;
+      }
+
+      var nextVersion = {
+        version: memo.currentVersion,
+        createdAt: now,
+        updatedAt: now,
+        author: (currentUser && (currentUser.displayName || currentUser.username)) || '我方',
+        role: currentPerspective || 'investor',
+        topic: payload.topic,
+        agreedContent: payload.agreedContent,
+        boundary: payload.boundary,
+        effectiveDate: payload.effectiveDate,
+        relatedProposalId: payload.relatedProposalId,
+        summaryBody: payload.summaryBody
+      };
+      memo.versions.push(nextVersion);
+      state.memoEditor.selectedMemoId = memo.id;
+      saveNegotiationState();
+      return memo;
+    }
+
+    function saveMemoDraft() {
+      var memo = upsertMemoFromForm('draft');
+      if (!memo) return;
+      pushTimelineEvent('memo_draft_saved', '保存沟通备忘录草稿（' + memo.id + '）', getPublicTermsFromWorkbench());
+      renderMemoTab();
+      showToast('success', '草稿已保存', memo.id + ' · V' + memo.currentVersion);
+    }
+
+    function submitMemoForConfirmation() {
+      var memo = upsertMemoFromForm('pending_confirmation');
+      if (!memo) return;
+      pushTimelineEvent('memo_submitted', '提交沟通备忘录待确认（' + memo.id + '）', getPublicTermsFromWorkbench());
+      renderMemoTab();
+      showToast('success', '已提交确认', memo.id + ' 已进入待确认状态');
     }
 
     function renderNegotiationTab() {
@@ -678,25 +933,15 @@
     }
 
     function submitNegotiationMemo(status) {
-      if (!currentDeal) return;
-      var state = ensureNegotiationState();
-      var input = document.getElementById('negMemoInput');
-      var text = (input ? input.value : '').trim();
-      if (!text) {
-        showToast('warning', '纪要为空', '请先填写纪要内容');
+      if (status === 'confirmed') {
+        var memo = upsertMemoFromForm('confirmed');
+        if (!memo) return;
+        pushTimelineEvent('memo_uploaded', '上传沟通纪要（已确认）（' + memo.id + '）', getPublicTermsFromWorkbench());
+        renderMemoTab();
+        showToast('success', '纪要已记录', memo.id + ' 已确认');
         return;
       }
-      state.memos.unshift({
-        id: 'M_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-        at: new Date().toISOString(),
-        content: text,
-        status: status
-      });
-      if (input) input.value = '';
-      saveNegotiationState();
-      pushTimelineEvent('memo_uploaded', '上传沟通纪要（' + (status === 'confirmed' ? '已确认' : '待确认') + '）', getPublicTermsFromWorkbench());
-      renderMemoTab();
-      showToast('success', '纪要已记录', status === 'confirmed' ? '纪要已确认' : '等待双方确认纪要');
+      submitMemoForConfirmation();
     }
 
     function generateNegotiationInvite() {
@@ -734,6 +979,11 @@
         timeline_reloaded: { label: '回填历史版本', category: 'proposal' },
         terms_confirmed: { label: '条款达成', category: 'proposal' },
         memo_uploaded: { label: '上传纪要', category: 'memo' },
+        memo_draft_saved: { label: '保存备忘录草稿', category: 'memo' },
+        memo_submitted: { label: '提交备忘录确认', category: 'memo' },
+        memo_confirmed: { label: '备忘录已确认', category: 'memo' },
+        memo_rejected: { label: '备忘录已拒绝', category: 'memo' },
+        memo_revised: { label: '备忘录已修订', category: 'memo' },
         invite_created: { label: '创建邀请', category: 'invite' }
       };
       return map[type] || { label: type || '未知事件', category: 'all' };
