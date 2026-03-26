@@ -761,10 +761,6 @@
     }
 
     function clearMemoForm() {
-      if (getCurrentMemoRoleKey() !== 'investor') {
-        showToast('info', '当前角色只读', '融资方不可新建备忘录草稿');
-        return;
-      }
       var state = ensureNegotiationState();
       if (!state) return;
       ensureMemoEditorState(state);
@@ -810,8 +806,6 @@
     }
 
     function canEditMemoByRole(memo) {
-      var role = getCurrentMemoRoleKey();
-      if (role !== 'investor') return false;
       if (!memo) return true;
       return memo.status === 'draft' || memo.status === 'rejected' || memo.status === 'revised';
     }
@@ -831,19 +825,15 @@
         roleConfirmed: roleConfirmed
       };
       if (!memo) {
-        if (role === 'investor') {
-          perms.canEdit = true;
-          perms.canSaveDraft = true;
-          perms.canSubmitConfirm = true;
-        }
+        perms.canEdit = true;
+        perms.canSaveDraft = true;
+        perms.canSubmitConfirm = true;
         return perms;
       }
       if (memo.status === 'draft' || memo.status === 'rejected' || memo.status === 'revised') {
-        if (role === 'investor') {
-          perms.canEdit = true;
-          perms.canSaveDraft = true;
-          perms.canSubmitConfirm = true;
-        }
+        perms.canEdit = true;
+        perms.canSaveDraft = true;
+        perms.canSubmitConfirm = true;
         return perms;
       }
       if (memo.status === 'pending_confirmation') {
@@ -912,7 +902,7 @@
 
       setMemoFormDisabled(!perms.canEdit);
 
-      if (topNewBtn) topNewBtn.classList.toggle('hidden', getCurrentMemoRoleKey() !== 'investor');
+      if (topNewBtn) topNewBtn.classList.remove('hidden');
       var showRevision = !!selectedMemo && perms.canCreateRevision;
 
       applyMemoPrimaryBtnStyle(
@@ -952,9 +942,7 @@
       if (actionHint) {
         var hintText = '';
         if (!selectedMemo) {
-          hintText = getCurrentMemoRoleKey() === 'investor'
-            ? '当前可新建备忘录并提交确认。'
-            : '当前角色仅可查看，等待投资方提交备忘录。';
+          hintText = '当前可新建备忘录并提交确认。';
         } else if (perms.canSaveDraft || perms.canSubmitConfirm) {
           hintText = '当前版本可编辑，可保存草稿或提交确认。';
         } else if (perms.canConfirm || perms.canReject) {
@@ -973,8 +961,8 @@
         updateMemoEditorHint('当前版本为「' + getMemoStatusMeta(selectedMemo.status).label + '」，当前角色仅可查看；如需改动请生成修订稿。');
       } else if (selectedMemo && selectedMemo.status === 'pending_confirmation' && perms.roleConfirmed) {
         updateMemoEditorHint('当前版本已完成本方确认（' + confirmCount + '/2），等待对方确认后生效。');
-      } else if (!selectedMemo && getCurrentMemoRoleKey() !== 'investor') {
-        updateMemoEditorHint('当前角色仅可查看备忘录与确认进度。');
+      } else if (!selectedMemo) {
+        updateMemoEditorHint('当前为新建模式。必填：议题。');
       }
     }
 
@@ -1338,7 +1326,7 @@
       var selectedInList = selectedMemo && memos.some(function(item) { return item.id === selectedMemo.id; });
       if (!selectedInList) selectedMemo = null;
       var roleKey = getCurrentMemoRoleKey();
-      var canCreateNew = roleKey === 'investor';
+      var canCreateNew = roleKey === 'investor' || roleKey === 'financer';
 
       function fmtMemoTime(value) {
         return String(value || '').slice(0, 16).replace('T', ' ') || '--';
@@ -1569,7 +1557,7 @@
 
       if (!selectedMemo) {
         setMemoFormData({});
-        updateMemoEditorHint(canCreateNew ? '当前为新建模式。必填：议题。' : '当前角色仅可查看备忘录与确认进度。');
+        updateMemoEditorHint('当前为新建模式。必填：议题。');
         renderMemoActionBar(state, null);
         renderMemoVersionHistory(state, null);
         return;
@@ -1604,10 +1592,6 @@
       var selectedId = state.memoEditor.selectedMemoId;
       var memo = (state.memos || []).find(function(item) { return item.id === selectedId; });
       var currentVersion = null;
-      if (!memo && getCurrentMemoRoleKey() !== 'investor') {
-        showToast('warning', '当前角色只读', '融资方不可新建备忘录草稿');
-        return null;
-      }
 
       if (!memo) {
         memo = {
