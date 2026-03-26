@@ -11,3 +11,4 @@ pids/
 .env
 *.backup
 *.bak
+.DS_Store
