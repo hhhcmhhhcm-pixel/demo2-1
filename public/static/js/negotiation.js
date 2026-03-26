@@ -69,9 +69,7 @@
           selectedMemoId: '',
           evidenceDraft: [],
           diffVersionA: '',
-          diffVersionB: '',
-          wechatGeneratedFromVersion: '',
-          wechatPreviewText: ''
+          diffVersionB: ''
         };
       }
       if (typeof state.memoEditor.selectedMemoId !== 'string') {
@@ -85,12 +83,6 @@
       }
       if (typeof state.memoEditor.diffVersionB !== 'string') {
         state.memoEditor.diffVersionB = '';
-      }
-      if (typeof state.memoEditor.wechatGeneratedFromVersion !== 'string') {
-        state.memoEditor.wechatGeneratedFromVersion = '';
-      }
-      if (typeof state.memoEditor.wechatPreviewText !== 'string') {
-        state.memoEditor.wechatPreviewText = '';
       }
     }
 
@@ -254,22 +246,6 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
-    }
-
-    function buildWeChatConfirmText(memoVersion) {
-      if (!memoVersion) return '';
-      var topic = memoVersion.topic || '未命名议题';
-      var agreed = memoVersion.agreedContent || '无';
-      var summary = memoVersion.summaryBody || '无';
-
-      return [
-        '【沟通备忘录确认】',
-        '议题：' + topic,
-        '达成内容：' + agreed,
-        '摘要：' + summary,
-        '',
-        '如以上内容无误，请直接回复“确认”。若需调整，请回复具体修改点。'
-      ].join('\n');
     }
 
     function getMemoStatusMeta(status) {
@@ -672,90 +648,6 @@
       renderMemoTab();
     }
 
-    function renderMemoWeChatPanel(state, memo) {
-      var meta = document.getElementById('memoWeChatMeta');
-      var preview = document.getElementById('memoWeChatPreview');
-      var copyBtn = document.getElementById('memoCopyWeChatBtn');
-      var genBtn = document.getElementById('memoGenerateWeChatBtn');
-      if (!meta || !preview) return;
-      if (!memo) {
-        meta.textContent = '尚未生成确认文本。';
-        preview.textContent = '请选择一条备忘录后生成。';
-        if (copyBtn) copyBtn.disabled = true;
-        if (genBtn) genBtn.disabled = true;
-        return;
-      }
-      if (genBtn) genBtn.disabled = false;
-      var text = state.memoEditor.wechatPreviewText || '';
-      var from = state.memoEditor.wechatGeneratedFromVersion || '';
-      if (!text) {
-        meta.textContent = '尚未生成确认文本。';
-        preview.textContent = '点击“生成确认文本”后可预览并复制。';
-        if (copyBtn) copyBtn.disabled = true;
-        return;
-      }
-      meta.textContent = from ? ('来源版本：V' + from) : '来源版本：未记录';
-      preview.textContent = text;
-      if (copyBtn) copyBtn.disabled = false;
-    }
-
-    function generateMemoWeChatText() {
-      if (!currentDeal) return;
-      var state = ensureNegotiationState();
-      if (!state) return;
-      var memo = getSelectedMemo(state);
-      if (!memo) {
-        showToast('warning', '未选择备忘录', '请先选择一条备忘录');
-        return;
-      }
-      var version = getMemoCurrentVersion(memo);
-      if (!version) return;
-      var text = buildWeChatConfirmText(version);
-      state.memoEditor.wechatGeneratedFromVersion = String(version.version || '');
-      state.memoEditor.wechatPreviewText = text;
-      saveNegotiationState();
-      renderMemoTab();
-      showToast('success', '确认文本已生成', memo.id + ' · V' + version.version);
-    }
-
-    function copyMemoWeChatText() {
-      var state = ensureNegotiationState();
-      if (!state) return;
-      var text = state.memoEditor.wechatPreviewText || '';
-      if (!text) {
-        showToast('warning', '暂无可复制内容', '请先生成确认文本');
-        return;
-      }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function() {
-          showToast('success', '已复制', '微信确认文本已复制到剪贴板');
-        }).catch(function() {
-          fallbackCopyMemoText(text);
-        });
-        return;
-      }
-      fallbackCopyMemoText(text);
-    }
-
-    function fallbackCopyMemoText(text) {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', 'readonly');
-      ta.style.position = 'absolute';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      var ok = false;
-      try {
-        ok = document.execCommand('copy');
-      } catch (e) {
-        ok = false;
-      }
-      ta.remove();
-      if (ok) showToast('success', '已复制', '微信确认文本已复制到剪贴板');
-      else showToast('warning', '复制失败', '请手动复制预览框内容');
-    }
-
     function updateMemoEditorHint(text) {
       var hint = document.getElementById('memoEditorHint');
       if (hint) hint.textContent = text;
@@ -766,8 +658,6 @@
       if (!state) return;
       ensureMemoEditorState(state);
       state.memoEditor.selectedMemoId = '';
-      state.memoEditor.wechatGeneratedFromVersion = '';
-      state.memoEditor.wechatPreviewText = '';
       setMemoFormData({});
       var rejectReason = document.getElementById('memoRejectReason');
       if (rejectReason) rejectReason.value = '';
@@ -783,8 +673,6 @@
       ensureMemoEditorState(state);
       var memo = (state.memos || []).find(function(item) { return item.id === memoId; });
       if (!memo) return;
-      state.memoEditor.wechatGeneratedFromVersion = '';
-      state.memoEditor.wechatPreviewText = '';
       var currentVersion = getMemoCurrentVersion(memo);
       if (!currentVersion) return;
       state.memoEditor.selectedMemoId = memoId;
@@ -1180,13 +1068,10 @@
       if (allMemos.length === 0) {
         list.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无沟通纪要。</p>';
         state.memoEditor.selectedMemoId = '';
-        state.memoEditor.wechatGeneratedFromVersion = '';
-        state.memoEditor.wechatPreviewText = '';
         setMemoFormData({});
         updateMemoEditorHint('当前为新建模式。必填：议题、达成内容。');
         renderMemoActionBar(state, null);
         renderMemoVersionHistory(state, null);
-        renderMemoWeChatPanel(state, null);
         renderMemoFilterMeta({ allCount: 0, filteredCount: 0, statusFilter: 'all', keyword: '' });
         saveNegotiationState();
         return;
@@ -1241,7 +1126,6 @@
         updateMemoEditorHint('当前为新建模式。必填：议题、达成内容。');
         renderMemoActionBar(state, null);
         renderMemoVersionHistory(state, null);
-        renderMemoWeChatPanel(state, null);
         return;
       }
       var selectedVersion = getMemoCurrentVersion(selectedMemo);
@@ -1255,7 +1139,6 @@
       updateMemoEditorHint('当前编辑：' + selectedMemo.id + ' · V' + selectedMemo.currentVersion + ' · ' + selectedStatusLabel + '。');
       renderMemoActionBar(state, selectedMemo);
       renderMemoVersionHistory(state, selectedMemo);
-      renderMemoWeChatPanel(state, selectedMemo);
     }
 
     function validateMemoCoreFields(data) {

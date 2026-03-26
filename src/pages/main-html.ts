@@ -823,17 +823,6 @@ export const MAIN_HTML = `
             </div>
             <div id="memoDiffBox" class="space-y-2 text-sm text-gray-600">请选择两个版本进行对比。</div>
           </div>
-          <div class="mt-4 pt-4 border-t border-gray-100">
-            <div class="flex items-center justify-between mb-2">
-              <h4 class="text-xs font-bold text-gray-700"><i class="fab fa-weixin mr-1.5 text-emerald-500"></i>微信确认文本</h4>
-              <div class="flex items-center gap-2">
-                <button id="memoGenerateWeChatBtn" onclick="generateMemoWeChatText()" class="px-2 py-1 text-[11px] font-semibold rounded border border-gray-200 text-gray-700 hover:bg-gray-50">生成确认文本</button>
-                <button id="memoCopyWeChatBtn" onclick="copyMemoWeChatText()" class="px-2 py-1 text-[11px] font-semibold rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50">复制</button>
-              </div>
-            </div>
-            <p id="memoWeChatMeta" class="text-[11px] text-gray-400 mb-2">尚未生成确认文本。</p>
-            <pre id="memoWeChatPreview" class="p-2.5 rounded-lg bg-gray-50 border border-gray-100 text-[11px] text-gray-700 whitespace-pre-wrap">请选择一条备忘录后生成。</pre>
-          </div>
         </div>
       </div>
     </div>
