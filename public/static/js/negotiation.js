@@ -691,6 +691,7 @@
       }
 
       var versions = getMemoVersionsDesc(memo);
+      var perms = getMemoActionPermissions(memo);
       history.innerHTML = versions.map(function(v) {
         var isCurrent = v.version === memo.currentVersion;
         var isDeprecated = !isCurrent && memo.currentVersion > v.version;
@@ -733,7 +734,7 @@
           '<div class="mt-1.5 flex items-center gap-2">' +
             '<button onclick="updateMemoDiffSelection(&quot;A&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本A</button>' +
             '<button onclick="updateMemoDiffSelection(&quot;B&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本B</button>' +
-            '<button onclick="createMemoRevisionFromVersion(' + v.version + ')" class="px-2 py-1 text-[11px] rounded border border-cyan-200 text-cyan-700 hover:bg-cyan-50">基于此版本新建草稿</button>' +
+            (perms.canCreateRevision ? ('<button onclick="createMemoRevisionFromVersion(' + v.version + ')" class="px-2 py-1 text-[11px] rounded border border-cyan-200 text-cyan-700 hover:bg-cyan-50">基于此版本新建草稿</button>') : '') +
           '</div>' +
         '</div>';
       }).join('');
@@ -901,6 +902,7 @@
       var confirmBtn = document.getElementById('memoBtnConfirm');
       var rejectBtn = document.getElementById('memoBtnReject');
       var rejectReason = document.getElementById('memoRejectReason');
+      var rejectReasonRow = document.getElementById('memoRejectReasonRow');
       var selectedVersion = selectedMemo ? getMemoCurrentVersion(selectedMemo) : null;
       var confirmCount = selectedVersion ? getMemoConfirmCount(selectedVersion.confirmMeta) : 0;
       var perms = getMemoActionPermissions(selectedMemo);
@@ -936,10 +938,15 @@
 
       if (financerActions) financerActions.classList.toggle('hidden', !canShowConfirmArea);
       if (confirmBtn) {
+        confirmBtn.classList.toggle('hidden', !perms.canConfirm && !perms.roleConfirmed);
         confirmBtn.disabled = !perms.canConfirm;
         confirmBtn.textContent = perms.roleConfirmed ? '已确认（本方）' : '确认';
       }
-      if (rejectBtn) rejectBtn.disabled = !perms.canReject;
+      if (rejectBtn) {
+        rejectBtn.classList.toggle('hidden', !perms.canReject);
+        rejectBtn.disabled = !perms.canReject;
+      }
+      if (rejectReasonRow) rejectReasonRow.classList.toggle('hidden', !perms.canReject);
       if (rejectReason) rejectReason.disabled = !perms.canReject;
 
       if (selectedMemo && !perms.canEdit && selectedMemo.status !== 'pending_confirmation') {
@@ -1360,7 +1367,7 @@
             '</div>' +
             '<button id="memoBtnCreateRevision" onclick="createMemoRevision()" class="hidden w-full px-3 py-2 text-xs font-semibold rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed">基于当前版本生成修订稿</button>' +
             '<div id="memoFinancerActions" class="hidden space-y-2">' +
-              '<div>' +
+              '<div id="memoRejectReasonRow">' +
                 '<label class="block text-xs text-gray-500 mb-1">拒绝原因（拒绝时必填）</label>' +
                 '<input id="memoRejectReason" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：达成内容描述不清晰，需要补充后再确认">' +
               '</div>' +
