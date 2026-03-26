@@ -808,8 +808,8 @@ export const MAIN_HTML = `
               <input id="memoRejectReason" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：边界条件不清晰，需要补充后再确认">
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <button id="memoBtnConfirm" onclick="confirmSelectedMemo()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">确认</button>
-              <button id="memoBtnReject" onclick="rejectSelectedMemo()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700">拒绝</button>
+              <button id="memoBtnConfirm" onclick="confirmSelectedMemo()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600">确认</button>
+              <button id="memoBtnReject" onclick="rejectSelectedMemo()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-rose-600">拒绝</button>
             </div>
           </div>
         </div>
