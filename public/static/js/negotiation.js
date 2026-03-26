@@ -627,13 +627,18 @@
       var versions = getMemoVersionsDesc(memo);
       history.innerHTML = versions.map(function(v) {
         var isCurrent = v.version === memo.currentVersion;
+        var isDeprecated = !isCurrent && memo.currentVersion > v.version;
         var confirmMeta = normalizeMemoConfirmMeta(v.confirmMeta, memo.status, v.author || '我方', v.updatedAt || v.createdAt);
         var confirmCount = getMemoConfirmCount(confirmMeta);
         var fullyConfirmed = isMemoVersionFullyConfirmed({ confirmMeta: confirmMeta });
         var inferredPending = !fullyConfirmed && !v.rejectMeta && ((isCurrent && memo.status === 'pending_confirmation') || (!isCurrent && confirmCount > 0));
-        var vStatus = fullyConfirmed ? 'confirmed' : (v.rejectMeta ? 'rejected' : (inferredPending ? 'pending_confirmation' : (isCurrent ? memo.status : 'history')));
+        var vStatus = isDeprecated
+          ? 'deprecated'
+          : (fullyConfirmed ? 'confirmed' : (v.rejectMeta ? 'rejected' : (inferredPending ? 'pending_confirmation' : (isCurrent ? memo.status : 'history'))));
         var statusLabel = vStatus === 'confirmed'
           ? '已确认（2/2）'
+          : vStatus === 'deprecated'
+            ? '已废弃'
           : vStatus === 'rejected'
             ? '已拒绝'
             : vStatus === 'pending_confirmation'
@@ -642,6 +647,7 @@
                 ? '草稿'
                 : '历史版本';
         var statusCls = vStatus === 'confirmed' ? 'bg-emerald-100 text-emerald-700'
+          : vStatus === 'deprecated' ? 'bg-gray-200 text-gray-600'
           : vStatus === 'rejected' ? 'bg-rose-100 text-rose-700'
           : vStatus === 'pending_confirmation' ? 'bg-amber-100 text-amber-700'
           : vStatus === 'draft' ? 'bg-gray-100 text-gray-600'
