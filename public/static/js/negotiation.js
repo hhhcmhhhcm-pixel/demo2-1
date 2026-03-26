@@ -767,8 +767,6 @@
       state.memoEditor.selectedMemoId = '';
       setMemoLastPrimaryAction('new');
       setMemoFormData({});
-      var rejectReason = document.getElementById('memoRejectReason');
-      if (rejectReason) rejectReason.value = '';
       updateMemoEditorHint('当前为新建模式。必填：议题。');
       saveNegotiationState();
       renderMemoTab();
@@ -791,8 +789,6 @@
       if (!currentVersion) return;
       state.memoEditor.selectedMemoId = memoId;
       setMemoFormData(currentVersion);
-      var rejectReason = document.getElementById('memoRejectReason');
-      if (rejectReason) rejectReason.value = '';
       var statusMeta = getMemoStatusMeta(memo.status);
       updateMemoEditorHint('当前编辑：' + memo.id + ' · V' + memo.currentVersion + ' · ' + statusMeta.label + '。');
       saveNegotiationState();
@@ -891,8 +887,6 @@
       var financerActions = document.getElementById('memoFinancerActions');
       var confirmBtn = document.getElementById('memoBtnConfirm');
       var rejectBtn = document.getElementById('memoBtnReject');
-      var rejectReason = document.getElementById('memoRejectReason');
-      var rejectReasonRow = document.getElementById('memoRejectReasonRow');
       var actionHint = document.getElementById('memoActionHint');
       var selectedVersion = selectedMemo ? getMemoCurrentVersion(selectedMemo) : null;
       var confirmCount = selectedVersion ? getMemoConfirmCount(selectedVersion.confirmMeta) : 0;
@@ -937,8 +931,6 @@
         rejectBtn.classList.toggle('hidden', !perms.canReject);
         rejectBtn.disabled = !perms.canReject;
       }
-      if (rejectReasonRow) rejectReasonRow.classList.toggle('hidden', !perms.canReject);
-      if (rejectReason) rejectReason.disabled = !perms.canReject;
       if (actionHint) {
         var hintText = '';
         if (!selectedMemo) {
@@ -1417,13 +1409,9 @@
             '</div>' +
             '<button id="memoBtnCreateRevision" onclick="createMemoRevision()" class="hidden w-full px-3 py-2 text-xs font-semibold rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed">基于当前版本生成修订稿</button>' +
             '<div id="memoFinancerActions" class="hidden space-y-2">' +
-              '<div id="memoRejectReasonRow">' +
-                '<label class="block text-xs text-gray-500 mb-1">拒绝原因（拒绝时必填）</label>' +
-                '<input id="memoRejectReason" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：达成内容描述不清晰，需要补充后再确认">' +
-              '</div>' +
               '<div class="grid grid-cols-2 gap-2">' +
                 '<button id="memoBtnConfirm" onclick="confirmSelectedMemo()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">确认</button>' +
-                '<button id="memoBtnReject" onclick="rejectSelectedMemo()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed">拒绝</button>' +
+                '<button id="memoBtnReject" onclick="openMemoRejectModal()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed">拒绝</button>' +
               '</div>' +
             '</div>' +
             '<p id="memoActionHint" class="text-[11px] text-gray-400"></p>' +
@@ -1801,28 +1789,63 @@
       }
     }
 
-    function rejectSelectedMemo() {
+    function getRejectableSelectedMemo() {
       if (!currentDeal) return;
       if (getCurrentMemoRoleKey() !== 'financer') {
         showToast('warning', '当前角色不可拒绝', '仅融资方可执行拒绝操作');
-        return;
+        return null;
       }
       var state = ensureNegotiationState();
-      if (!state) return;
+      if (!state) return null;
       var memo = getSelectedMemo(state);
       if (!memo) {
         showToast('warning', '未选择备忘录', '请选择一条待确认备忘录');
-        return;
+        return null;
       }
       if (memo.status !== 'pending_confirmation') {
         showToast('info', '当前状态不可拒绝', '仅待确认状态可执行拒绝');
-        return;
+        return null;
       }
-      var reason = (document.getElementById('memoRejectReason')?.value || '').trim();
+      return { state: state, memo: memo };
+    }
+
+    function openMemoRejectModal() {
+      var ctx = getRejectableSelectedMemo();
+      if (!ctx) return;
+      var modal = document.getElementById('memoRejectModal');
+      var input = document.getElementById('memoRejectModalInput');
+      if (!modal || !input) return;
+      input.value = '';
+      modal.classList.remove('hidden');
+      setTimeout(function() { input.focus(); }, 0);
+    }
+
+    function closeMemoRejectModal() {
+      var modal = document.getElementById('memoRejectModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function confirmMemoRejectFromModal() {
+      var input = document.getElementById('memoRejectModalInput');
+      var reason = String(input && input.value || '').trim();
       if (!reason) {
         showToast('warning', '请填写拒绝原因', '拒绝备忘录时需填写原因');
         return;
       }
+      rejectSelectedMemo(reason);
+    }
+
+    function rejectSelectedMemo(reasonOverride) {
+      var ctx = getRejectableSelectedMemo();
+      if (!ctx) return;
+      var state = ctx.state;
+      var memo = ctx.memo;
+      var reason = String(reasonOverride || '').trim();
+      if (!reason) {
+        openMemoRejectModal();
+        return;
+      }
+      closeMemoRejectModal();
       var version = getMemoCurrentVersion(memo);
       var now = new Date().toISOString();
       memo.status = 'rejected';

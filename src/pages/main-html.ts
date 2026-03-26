@@ -933,6 +933,23 @@ export const MAIN_HTML = `
     </div>
   </div>
 
+  <div id="memoRejectModal" class="hidden fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-[210]" onclick="if(event.target===this)closeMemoRejectModal()">
+    <div class="bg-white rounded-2xl max-w-md w-full mx-4 border border-gray-100 shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-gray-900"><i class="fas fa-circle-xmark mr-1.5 text-rose-500"></i>拒绝备忘录</h3>
+        <button onclick="closeMemoRejectModal()" class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="px-5 py-4">
+        <p class="text-xs text-gray-500 mb-2">请填写拒绝原因（必填），将写入版本记录并可追溯。</p>
+        <textarea id="memoRejectModalInput" rows="4" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：达成内容描述不清晰，需要补充后再确认"></textarea>
+      </div>
+      <div class="px-5 py-4 border-t border-gray-100 flex gap-2 justify-end">
+        <button onclick="closeMemoRejectModal()" class="px-4 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">取消</button>
+        <button onclick="confirmMemoRejectFromModal()" class="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700">确认拒绝</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== JavaScript ==================== -->
   <script src="/static/js/state.js"></script>
   <script src="/static/js/shared.js"></script>
