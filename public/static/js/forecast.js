@@ -107,11 +107,75 @@
     let fcChartRange = '1y';
     let fcInputMode = 'quick';
 
+    // ---- 均值计算区间 ----
+    let fcAvgFrom = 0;  // 0-based index (第1月 = 0)
+    let fcAvgTo = 12;   // exclusive (第12月 = 12)
+
+    function getFcAvgSlice(data) {
+      const from = Math.max(0, fcAvgFrom);
+      const to = Math.min(data.length, fcAvgTo);
+      return data.slice(from, to);
+    }
+
+    function getFcAvgLabel() {
+      return '第' + (fcAvgFrom + 1) + '~' + fcAvgTo + '月均值';
+    }
+
+    function setFcAvgPreset(months) {
+      fcAvgFrom = 0;
+      fcAvgTo = months;
+      const fromEl = document.getElementById('fcAvgFrom');
+      const toEl = document.getElementById('fcAvgTo');
+      if (fromEl) fromEl.value = '1';
+      if (toEl) toEl.value = String(months);
+      updateFcAvgUI();
+      refreshFcCards();
+    }
+
+    function onFcAvgRangeChange() {
+      const fromEl = document.getElementById('fcAvgFrom');
+      const toEl = document.getElementById('fcAvgTo');
+      if (!fromEl || !toEl) return;
+      let from = parseInt(fromEl.value) || 1;
+      let to = parseInt(toEl.value) || 12;
+      if (from < 1) from = 1;
+      if (to < from) to = from;
+      if (to > 60) to = 60;
+      fromEl.value = String(from);
+      toEl.value = String(to);
+      fcAvgFrom = from - 1;
+      fcAvgTo = to;
+      updateFcAvgUI();
+      refreshFcCards();
+    }
+
+    function updateFcAvgUI() {
+      const label = document.getElementById('fcAvgRangeLabel');
+      if (label) label.textContent = getFcAvgLabel();
+      [12, 24, 36].forEach(n => {
+        const btn = document.getElementById('fcAvgP' + n);
+        if (btn) {
+          const active = fcAvgFrom === 0 && fcAvgTo === n;
+          btn.classList.toggle('bg-teal-50', active);
+          btn.classList.toggle('text-teal-700', active);
+          btn.classList.toggle('text-gray-500', !active);
+        }
+      });
+    }
+
+    function refreshFcCards() {
+      if (!currentDeal) return;
+      const state = ensureForecastState(currentDeal);
+      renderFcSystemInfo(state);
+      renderFcBorrowerInfo(state);
+    }
+
     // ---- Main render ----
     function renderForecastTab() {
       if (!currentDeal) return;
       const state = ensureForecastState(currentDeal);
 
+      updateFcAvgUI();
       renderFcSystemInfo(state);
       renderFcBorrowerInfo(state);
       renderFcSelfInputs(state);
@@ -124,19 +188,18 @@
       const el = document.getElementById('fcSystemInfo');
       if (!el) return;
       const data = state.systemMonthly;
-      const avg1y = data.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
-      const avg3y = data.slice(0, 36).reduce((a, b) => a + b, 0) / 36;
+      const rangeSlice = getFcAvgSlice(data);
+      const avgCustom = rangeSlice.length > 0 ? rangeSlice.reduce((a, b) => a + b, 0) / rangeSlice.length : 0;
       const avg5y = data.reduce((a, b) => a + b, 0) / data.length;
       const min = Math.min(...data);
       const max = Math.max(...data);
       el.innerHTML =
         '<div class="p-2.5 rounded-lg bg-teal-50 border border-teal-100">' +
           '<p class="text-xs text-teal-700 font-medium">月均营业额（模型预估）</p>' +
-          '<p class="text-lg font-bold text-teal-700">' + avg1y.toFixed(1) + '万/月</p>' +
-          '<p class="text-[11px] text-teal-600">首年均值</p>' +
+          '<p class="text-lg font-bold text-teal-700">' + avgCustom.toFixed(1) + '万/月</p>' +
+          '<p class="text-[11px] text-teal-600">' + getFcAvgLabel() + '</p>' +
         '</div>' +
         '<div class="grid grid-cols-2 gap-2">' +
-          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">3年均值</p><p class="text-xs font-bold text-gray-700">' + avg3y.toFixed(1) + '万</p></div>' +
           '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">5年均值</p><p class="text-xs font-bold text-gray-700">' + avg5y.toFixed(1) + '万</p></div>' +
           '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">波动区间</p><p class="text-xs font-bold text-gray-700">' + min.toFixed(0) + '-' + max.toFixed(0) + '万</p></div>' +
           '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">数据覆盖</p><p class="text-xs font-bold text-gray-700">60个月</p></div>' +
@@ -145,27 +208,267 @@
     }
 
     // ---- Borrower forecast display ----
+    let fcBorrowerMode = 'quick';
+    let fcBorrowerEditing = false;
+
     function renderFcBorrowerInfo(state) {
       const el = document.getElementById('fcBorrowerInfo');
+      const editEl = document.getElementById('fcBorrowerEdit');
+      const badge = document.getElementById('fcBorrowerBadge');
       if (!el) return;
+      const isFinancer = currentPerspective === 'financer';
+
+      // 重置编辑状态
+      fcBorrowerEditing = false;
+      if (editEl) editEl.classList.add('hidden');
+      el.classList.remove('hidden');
+
       const data = state.borrowerMonthly;
-      const avg1y = data.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
-      const avg3y = data.reduce((a, b) => a + b, 0) / data.length;
+      const rangeSlice = getFcAvgSlice(data);
+      const avgCustom = rangeSlice.length > 0 ? rangeSlice.reduce((a, b) => a + b, 0) / rangeSlice.length : 0;
+      const allAvg = data.reduce((a, b) => a + b, 0) / data.length;
       const min = Math.min(...data);
       const max = Math.max(...data);
+
+      // 融资方视角加编辑按钮
+      const editBtn = isFinancer
+        ? '<button onclick="toggleFcBorrowerEdit()" class="ml-2 px-2 py-0.5 text-[10px] font-semibold rounded bg-cyan-100 text-cyan-700 hover:bg-cyan-200"><i class="fas fa-pen mr-1"></i>编辑</button>'
+        : '';
+
+      if (badge) {
+        badge.textContent = isFinancer ? '可编辑 · 3年' : '参与通内 · 3年';
+      }
+
       el.innerHTML =
         '<div class="p-2.5 rounded-lg bg-cyan-50 border border-cyan-100">' +
-          '<p class="text-xs text-cyan-700 font-medium">月均营业额（融资方预估）</p>' +
-          '<p class="text-lg font-bold text-cyan-700">' + avg1y.toFixed(1) + '万/月</p>' +
-          '<p class="text-[11px] text-cyan-600">首年均值</p>' +
+          '<div class="flex items-center justify-between">' +
+            '<p class="text-xs text-cyan-700 font-medium">月均营业额（融资方预估）</p>' +
+            editBtn +
+          '</div>' +
+          '<p class="text-lg font-bold text-cyan-700">' + avgCustom.toFixed(1) + '万/月</p>' +
+          '<p class="text-[11px] text-cyan-600">' + getFcAvgLabel() + '</p>' +
         '</div>' +
         '<div class="grid grid-cols-2 gap-2">' +
-          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">3年均值</p><p class="text-xs font-bold text-gray-700">' + avg3y.toFixed(1) + '万</p></div>' +
+          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">全期均值</p><p class="text-xs font-bold text-gray-700">' + allAvg.toFixed(1) + '万</p></div>' +
           '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">波动区间</p><p class="text-xs font-bold text-gray-700">' + min.toFixed(0) + '-' + max.toFixed(0) + '万</p></div>' +
           '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">数据覆盖</p><p class="text-xs font-bold text-gray-700">36个月</p></div>' +
-          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">数据来源</p><p class="text-xs font-bold text-gray-700">参与通内填写</p></div>' +
+          '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[10px] text-gray-500">数据来源</p><p class="text-xs font-bold text-gray-700">融资方填写</p></div>' +
         '</div>' +
-        '<p class="text-[10px] text-gray-400 mt-1">融资方在参与通内创建与编辑，可随时撤回。系统不校验真实性，由投资人自行判断。</p>';
+        (isFinancer
+          ? '<p class="text-[10px] text-gray-400 mt-1">点击编辑按钮可修改预估数据，保存后图表自动更新。</p>'
+          : '<p class="text-[10px] text-gray-400 mt-1">融资方在参与通内创建与编辑，可随时撤回。系统不校验真实性，由投资人自行判断。</p>');
+    }
+
+    function toggleFcBorrowerEdit() {
+      const el = document.getElementById('fcBorrowerInfo');
+      const editEl = document.getElementById('fcBorrowerEdit');
+      if (!el || !editEl || !currentDeal) return;
+
+      fcBorrowerEditing = !fcBorrowerEditing;
+      if (fcBorrowerEditing) {
+        el.classList.add('hidden');
+        editEl.classList.remove('hidden');
+        const state = ensureForecastState(currentDeal);
+        renderFcBorrowerEditInputs(state);
+      } else {
+        editEl.classList.add('hidden');
+        el.classList.remove('hidden');
+      }
+    }
+
+    // ---- Borrower edit (financer perspective) ----
+    function renderFcBorrowerEditInputs(state) {
+      fcBorrowerMode = state.borrowerMode || 'quick';
+      setFcBorrowerMode(fcBorrowerMode);
+
+      const quickEl = document.getElementById('fcBorQuickValue');
+      if (quickEl && state.borrowerQuickValue) quickEl.value = String(state.borrowerQuickValue);
+
+      renderFcBorMonthlyYearSelector();
+      renderFcBorMonthlyInputs();
+      renderFcBorYearlyInputs();
+    }
+
+    function setFcBorrowerMode(mode) {
+      fcBorrowerMode = mode;
+      const modes = ['quick', 'monthly', 'yearly'];
+      modes.forEach(m => {
+        const panel = document.getElementById('fcBorInput' + m.charAt(0).toUpperCase() + m.slice(1));
+        const btn = document.getElementById('fcBorMode' + m.charAt(0).toUpperCase() + m.slice(1));
+        if (panel) panel.classList.toggle('hidden', m !== mode);
+        if (btn) {
+          btn.classList.toggle('bg-white', m === mode);
+          btn.classList.toggle('shadow', m === mode);
+          btn.classList.toggle('text-cyan-700', m === mode);
+          btn.classList.toggle('text-gray-500', m !== mode);
+        }
+      });
+      if (currentDeal) {
+        const state = ensureForecastState(currentDeal);
+        state.borrowerMode = mode;
+      }
+    }
+
+    function renderFcBorMonthlyYearSelector() {
+      const sel = document.getElementById('fcBorMonthlyYear');
+      if (!sel) return;
+      const currentYear = new Date().getFullYear();
+      sel.innerHTML = '';
+      for (let y = currentYear; y <= currentYear + 2; y++) {
+        sel.innerHTML += '<option value="' + y + '">' + y + '年</option>';
+      }
+    }
+
+    function saveCurrentBorMonthlyToState() {
+      if (!currentDeal) return;
+      const state = ensureForecastState(currentDeal);
+      const inputs = document.querySelectorAll('.fc-bor-monthly-input');
+      if (inputs.length === 0) return;
+      const year = inputs[0]?.dataset?.year;
+      if (!year) return;
+      const monthData = [];
+      inputs.forEach(inp => {
+        const v = parseWanValue(inp.value);
+        monthData.push(v > 0 ? v : 0);
+      });
+      if (!state.borrowerSelfMonthly) state.borrowerSelfMonthly = {};
+      state.borrowerSelfMonthly[year] = monthData;
+      saveForecastState();
+    }
+
+    function renderFcBorMonthlyInputs() {
+      const grid = document.getElementById('fcBorMonthlyGrid');
+      const yearSel = document.getElementById('fcBorMonthlyYear');
+      if (!grid || !yearSel || !currentDeal) return;
+      const state = ensureForecastState(currentDeal);
+      const year = yearSel.value;
+      const saved = (state.borrowerSelfMonthly && state.borrowerSelfMonthly[year]) || [];
+      grid.innerHTML = '';
+      for (let m = 0; m < 12; m++) {
+        grid.innerHTML +=
+          '<div>' +
+            '<label class="text-[10px] text-gray-400">' + (m + 1) + '月</label>' +
+            '<input type="text" inputmode="decimal" data-month="' + m + '" data-year="' + year + '"' +
+            ' value="' + (saved[m] || '') + '"' +
+            ' placeholder="--"' +
+            ' class="fc-bor-monthly-input w-full px-1.5 py-1 border border-gray-200 rounded text-[11px] text-center">' +
+          '</div>';
+      }
+    }
+
+    function onFcBorMonthlyYearChange() {
+      saveCurrentBorMonthlyToState();
+      renderFcBorMonthlyInputs();
+    }
+
+    function renderFcBorYearlyInputs() {
+      const grid = document.getElementById('fcBorYearlyGrid');
+      if (!grid || !currentDeal) return;
+      const state = ensureForecastState(currentDeal);
+      const currentYear = new Date().getFullYear();
+      grid.innerHTML = '';
+      for (let y = currentYear; y <= currentYear + 2; y++) {
+        const saved = (state.borrowerSelfYearly && state.borrowerSelfYearly[y]) || '';
+        grid.innerHTML +=
+          '<div class="flex items-center gap-2">' +
+            '<span class="text-[11px] text-gray-500 w-10">' + y + '</span>' +
+            '<input type="text" inputmode="decimal" data-year="' + y + '"' +
+            ' value="' + saved + '"' +
+            ' placeholder="月均（万）"' +
+            ' class="fc-bor-yearly-input flex-1 px-2 py-1 border border-gray-200 rounded text-[11px]">' +
+          '</div>';
+      }
+    }
+
+    function onFcBorQuickInput() {
+      if (!currentDeal) return;
+      const val = parseWanValue(document.getElementById('fcBorQuickValue')?.value);
+      if (val > 0) {
+        const state = ensureForecastState(currentDeal);
+        state.borrowerQuickValue = val;
+        rebuildBorrowerMonthly(state);
+        renderFcChart(state);
+      }
+    }
+
+    function rebuildBorrowerMonthly(state) {
+      const mode = state.borrowerMode || 'quick';
+      if (mode === 'quick' && state.borrowerQuickValue > 0) {
+        // 快捷模式：36个月统一值
+        state.borrowerMonthly = Array(36).fill(state.borrowerQuickValue);
+      } else if (mode === 'monthly' && state.borrowerSelfMonthly) {
+        const currentYear = new Date().getFullYear();
+        const months = [];
+        for (let y = currentYear; y <= currentYear + 2; y++) {
+          const arr = state.borrowerSelfMonthly[y] || [];
+          for (let m = 0; m < 12; m++) {
+            months.push(arr[m] > 0 ? arr[m] : 0);
+          }
+        }
+        // 仅在有数据时更新
+        if (months.some(v => v > 0)) state.borrowerMonthly = months;
+      } else if (mode === 'yearly' && state.borrowerSelfYearly) {
+        const currentYear = new Date().getFullYear();
+        const months = [];
+        for (let y = currentYear; y <= currentYear + 2; y++) {
+          const v = state.borrowerSelfYearly[y] || 0;
+          for (let m = 0; m < 12; m++) months.push(v);
+        }
+        if (months.some(v => v > 0)) state.borrowerMonthly = months;
+      }
+    }
+
+    function saveFcBorrowerInput() {
+      if (!currentDeal) {
+        showToast('warning', '请先选择项目', '');
+        return;
+      }
+      const state = ensureForecastState(currentDeal);
+
+      if (fcBorrowerMode === 'quick') {
+        const val = parseWanValue(document.getElementById('fcBorQuickValue')?.value);
+        if (!val || val <= 0) {
+          showToast('warning', '请输入月均营业额', '');
+          return;
+        }
+        state.borrowerQuickValue = val;
+      } else if (fcBorrowerMode === 'monthly') {
+        saveCurrentBorMonthlyToState();
+        if (!state.borrowerSelfMonthly) state.borrowerSelfMonthly = {};
+        let hasData = false;
+        Object.keys(state.borrowerSelfMonthly).forEach(yr => {
+          const arr = state.borrowerSelfMonthly[yr];
+          if (arr && arr.some(v => v > 0)) hasData = true;
+        });
+        if (!hasData) {
+          showToast('warning', '请至少填写一个月的数据', '');
+          return;
+        }
+      } else if (fcBorrowerMode === 'yearly') {
+        const inputs = document.querySelectorAll('.fc-bor-yearly-input');
+        const yearData = {};
+        let hasData = false;
+        inputs.forEach(inp => {
+          const y = inp.dataset.year;
+          const v = parseWanValue(inp.value);
+          if (v > 0) { yearData[y] = v; hasData = true; }
+        });
+        state.borrowerSelfYearly = yearData;
+        if (!hasData) {
+          showToast('warning', '请至少填写一年的数据', '');
+          return;
+        }
+      }
+
+      state.borrowerMode = fcBorrowerMode;
+      rebuildBorrowerMonthly(state);
+      saveForecastState();
+
+      // 退出编辑模式，刷新只读展示和图表
+      fcBorrowerEditing = false;
+      renderFcBorrowerInfo(state);
+      renderFcChart(state);
+      showToast('success', '融资方预估已保存', '数据已更新');
     }
 
     // ---- Self input ----
@@ -643,9 +946,11 @@
       let value = 0;
 
       if (source === 'system') {
-        value = state.systemMonthly.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
+        const s = getFcAvgSlice(state.systemMonthly);
+        value = s.length > 0 ? s.reduce((a, b) => a + b, 0) / s.length : 0;
       } else if (source === 'borrower') {
-        value = state.borrowerMonthly.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
+        const s = getFcAvgSlice(state.borrowerMonthly);
+        value = s.length > 0 ? s.reduce((a, b) => a + b, 0) / s.length : 0;
       } else if (source === 'self') {
         value = state.selectedValue || 0;
         if (!value || value <= 0) {

@@ -121,7 +121,7 @@
           '</div>' +
           // 筛子评估结果（辅助）— 融资方视角不显示
           (!isFinancerView ? '<div class="bg-white rounded-2xl p-5 border border-gray-100"><h3 class="text-sm font-bold text-gray-800 mb-4"><i class="fas fa-filter mr-1.5 text-cyan-500"></i>筛子评估（辅助参考）</h3><div class="space-y-3">' + sieveResults + '</div>' +
-          '<p class="text-xs text-gray-400 mt-3">说明：做功课阶段建议优先结合一页纸和同行参考，再用筛子结果做交叉验证。</p></div>' : '') +
+          '<p class="text-xs text-gray-400 mt-3">说明：项目详情阶段建议优先结合一页纸和同行参考，再用筛子结果做交叉验证。</p></div>' : '') +
         '</div>';
 
       switchDetailView('onepager');

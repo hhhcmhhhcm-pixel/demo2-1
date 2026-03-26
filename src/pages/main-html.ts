@@ -393,7 +393,7 @@ export const MAIN_HTML = `
     <div class="px-4 pb-2 flex-shrink-0">
       <div class="max-w-7xl mx-auto bg-white rounded-xl border border-gray-100 p-1 flex flex-wrap gap-1">
         <button id="sessionTabBtn-research" onclick="switchSessionTab('research')" class="session-tab-btn px-3 py-2 rounded-lg text-xs font-semibold bg-teal-50 text-teal-700">
-          <i class="fas fa-book-open mr-1"></i>做功课
+          <i class="fas fa-book-open mr-1"></i>项目详情
         </button>
         <button id="sessionTabBtn-forecast" onclick="switchSessionTab('forecast')" class="session-tab-btn px-3 py-2 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50">
           <i class="fas fa-chart-line mr-1"></i>营业额预估
@@ -425,14 +425,14 @@ export const MAIN_HTML = `
       </div>
       <div class="w-3/5 flex flex-col bg-slate-50 overflow-y-auto">
         <div class="p-3 border-b border-gray-200 bg-white flex items-center justify-between">
-          <div class="flex items-center space-x-2"><span class="text-sm font-semibold text-gray-700"><i class="fas fa-book-open mr-1.5 text-cyan-500"></i>做功课工作台</span></div>
+          <div class="flex items-center space-x-2"><span class="text-sm font-semibold text-gray-700"><i class="fas fa-book-open mr-1.5 text-cyan-500"></i>项目详情</span></div>
           <div class="flex bg-gray-100 rounded-lg p-0.5">
             <button onclick="switchDetailView('onepager')" id="btnOnepager" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-white shadow text-teal-600"><i class="fas fa-file-lines mr-1"></i>一页纸</button>
             <button onclick="switchDetailView('comparables')" id="btnComparables" class="px-2.5 py-1 rounded-md text-xs font-semibold text-gray-600"><i class="fas fa-scale-balanced mr-1"></i>同行参考</button>
           </div>
         </div>
         <div class="flex-1 p-5" id="detailRight">
-          <div class="text-center py-16 text-gray-400"><i class="fas fa-chart-area text-4xl mb-3 opacity-40"></i><p class="text-sm">选择一个项目开始做功课</p></div>
+          <div class="text-center py-16 text-gray-400"><i class="fas fa-chart-area text-4xl mb-3 opacity-40"></i><p class="text-sm">选择一个项目查看详情</p></div>
         </div>
       </div>
     </div>
@@ -465,6 +465,26 @@ export const MAIN_HTML = `
           </div>
         </div>
 
+        <div class="bg-white rounded-2xl border border-gray-100 px-5 py-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-xs font-semibold text-gray-700"><i class="fas fa-sliders-h mr-1.5 text-teal-500"></i>均值计算区间</span>
+            <div class="flex items-center gap-1.5">
+              <button onclick="setFcAvgPreset(12)" id="fcAvgP12" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700">首年</button>
+              <button onclick="setFcAvgPreset(24)" id="fcAvgP24" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-500">2年</button>
+              <button onclick="setFcAvgPreset(36)" id="fcAvgP36" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-500">3年</button>
+            </div>
+            <span class="text-[10px] text-gray-400">或自定义：</span>
+            <div class="flex items-center gap-1">
+              <span class="text-[10px] text-gray-500">第</span>
+              <input id="fcAvgFrom" type="number" min="1" max="60" value="1" class="w-10 px-1.5 py-0.5 border border-gray-200 rounded text-[11px] text-center" onchange="onFcAvgRangeChange()">
+              <span class="text-[10px] text-gray-500">~</span>
+              <input id="fcAvgTo" type="number" min="1" max="60" value="12" class="w-10 px-1.5 py-0.5 border border-gray-200 rounded text-[11px] text-center" onchange="onFcAvgRangeChange()">
+              <span class="text-[10px] text-gray-500">月</span>
+            </div>
+            <span id="fcAvgRangeLabel" class="text-[10px] text-teal-600 font-medium">第1~12月均值</span>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div class="bg-white rounded-2xl border border-gray-100 p-4">
             <div class="flex items-center justify-between mb-3">
@@ -480,10 +500,36 @@ export const MAIN_HTML = `
           <div class="bg-white rounded-2xl border border-gray-100 p-4">
             <div class="flex items-center justify-between mb-3">
               <h4 class="text-sm font-bold text-gray-800"><i class="fas fa-upload mr-1.5 text-cyan-500"></i>融资方预估</h4>
-              <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-50 text-cyan-600">参与通内 · 3年</span>
+              <span id="fcBorrowerBadge" class="text-[10px] px-2 py-0.5 rounded bg-cyan-50 text-cyan-600">参与通内 · 3年</span>
             </div>
             <div id="fcBorrowerInfo" class="space-y-2">
               <p class="text-xs text-gray-400">选择项目后显示</p>
+            </div>
+            <div id="fcBorrowerEdit" class="hidden space-y-3">
+              <div class="flex bg-gray-100 rounded-lg p-0.5">
+                <button onclick="setFcBorrowerMode('quick')" id="fcBorModeQuick" class="flex-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-white shadow text-cyan-700">快捷填写</button>
+                <button onclick="setFcBorrowerMode('monthly')" id="fcBorModeMonthly" class="flex-1 px-2 py-1 rounded-md text-[11px] font-semibold text-gray-500">逐月填写</button>
+                <button onclick="setFcBorrowerMode('yearly')" id="fcBorModeYearly" class="flex-1 px-2 py-1 rounded-md text-[11px] font-semibold text-gray-500">逐年填写</button>
+              </div>
+              <div id="fcBorInputQuick">
+                <label class="block text-xs text-gray-500 mb-1">月均营业额预估（万）</label>
+                <input id="fcBorQuickValue" type="text" inputmode="decimal" placeholder="例如 150" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="onFcBorQuickInput()">
+              </div>
+              <div id="fcBorInputMonthly" class="hidden">
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs text-gray-500">逐月营业额（万）</label>
+                  <select id="fcBorMonthlyYear" class="text-[11px] px-2 py-0.5 border border-gray-200 rounded bg-white" onchange="onFcBorMonthlyYearChange()"></select>
+                </div>
+                <div id="fcBorMonthlyGrid" class="grid grid-cols-4 gap-1.5"></div>
+              </div>
+              <div id="fcBorInputYearly" class="hidden">
+                <label class="text-xs text-gray-500 mb-1 block">逐年月均营业额（万）</label>
+                <div id="fcBorYearlyGrid" class="space-y-1.5"></div>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="toggleFcBorrowerEdit()" class="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200">取消</button>
+                <button onclick="saveFcBorrowerInput()" class="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700"><i class="fas fa-save mr-1"></i>保存预估</button>
+              </div>
             </div>
             <button onclick="applyForecastToWb('borrower')" class="w-full mt-3 px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-700"><i class="fas fa-check mr-1"></i>采用融资方预估</button>
           </div>
@@ -538,7 +584,7 @@ export const MAIN_HTML = `
         <div class="bg-white rounded-2xl border border-gray-100 p-5">
           <h3 class="text-base font-bold text-gray-900 mb-2"><i class="fas fa-sliders-h mr-2 text-cyan-600"></i>RBF 条款工作台</h3>
           <p class="text-sm text-gray-500">三区分离：公共条款（双方可见）/ 私有预测（仅自己可见）/ 派生指标（仅自己可见）。</p>
-          <p class="text-xs text-cyan-700 mt-3 p-2.5 rounded-lg bg-cyan-50 border border-cyan-100" id="workbenchPrefillHint">暂无从做功课带入的营业额预估值。</p>
+          <p class="text-xs text-cyan-700 mt-3 p-2.5 rounded-lg bg-cyan-50 border border-cyan-100" id="workbenchPrefillHint">暂无从项目详情带入的营业额预估值。</p>
         </div>
 
         <div id="workbenchPanel" class="grid grid-cols-1 lg:grid-cols-3 gap-4">

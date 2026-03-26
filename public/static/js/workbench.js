@@ -374,7 +374,7 @@
       if (!hint) return;
       const saved = currentDeal ? researchInputsByDeal[currentDeal.id] : null;
       if (!currentDeal || !saved || !saved.predictedMonthlyRevenue) {
-        hint.textContent = '暂无从做功课带入的营业额预估值。';
+        hint.textContent = '暂无从项目详情带入的营业额预估值。';
         return;
       }
       hint.textContent = '已带入「' + currentDeal.name + '」营业额预估：' + saved.predictedMonthlyRevenue.toFixed(1) + '万/月。下一步将用于条款工作台派生指标计算。';
