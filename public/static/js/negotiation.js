@@ -349,7 +349,7 @@
       var items = normalizeMemoEvidenceAnchors(state.memoEditor.evidenceDraft);
       state.memoEditor.evidenceDraft = items;
       if (items.length === 0) {
-        list.innerHTML = '<p class="text-xs text-gray-400">暂无证据锚点</p>';
+        list.innerHTML = '<p class="text-xs text-gray-400">暂无备忘录文件</p>';
         return;
       }
       list.innerHTML = items.map(function(item, idx) {
@@ -1100,7 +1100,7 @@
               var when = ev.uploadedAt ? ev.uploadedAt.replace('T', ' ').slice(0, 16) : '--';
               return '<div class="p-1.5 rounded bg-gray-50 border border-gray-100"><span class="font-medium">#' + (i + 1) + '</span> ' + escapeMemoText(ev.fileName || '未命名文件') + ' · ' + escapeMemoText(formatMemoFileSize(ev.fileSize)) + ' · ' + escapeMemoText(ev.mimeType || '--') + ' · ' + escapeMemoText(when) + (ev.note ? ('<br><span class="text-gray-400">' + escapeMemoText(ev.note) + '</span>') : '') + '</div>';
             }).join('') + '</div></details>')
-          : '<p class="text-[11px] text-gray-400 mt-1.5">证据锚点：0</p>';
+          : '<p class="text-[11px] text-gray-400 mt-1.5">备忘录文件：0</p>';
         return '<div onclick="selectMemoForEdit(\'' + m.id + '\')" class="w-full text-left p-3 rounded-xl border transition-colors cursor-pointer ' + (selected ? 'border-indigo-300 bg-indigo-50' : 'border-indigo-100 bg-white hover:bg-indigo-50/40') + '">' +
           '<div class="flex items-center justify-between mb-1.5">' +
             '<div class="text-xs font-semibold text-indigo-700">纪要 · ' + m.id + ' · V' + m.currentVersion + '</div>' +
@@ -1112,7 +1112,7 @@
           evidenceDetails +
           '<div class="text-[10px] text-gray-400 mt-1.5 flex items-center justify-between">' +
             '<span>' + time + '</span>' +
-            '<span>证据锚点：' + evidenceCount + '</span>' +
+            '<span>备忘录文件：' + evidenceCount + '</span>' +
           '</div>' +
         '</div>';
         }).join('');
