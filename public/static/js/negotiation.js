@@ -1229,13 +1229,6 @@
         showToast('warning', '请补充必填字段', '至少填写「议题」');
         return false;
       }
-      if (targetStatus !== 'draft') {
-        var evidenceCount = normalizeMemoEvidenceAnchors(data.evidenceAnchors).length;
-        if (evidenceCount < 1) {
-          showToast('warning', '缺少备忘录文件', '提交确认前至少上传 1 个备忘录文件');
-          return false;
-        }
-      }
       return true;
     }
 
