@@ -739,7 +739,7 @@ export const MAIN_HTML = `
 
     <!-- Tab: 沟通备忘录 -->
     <div id="sessionTab-memo" class="hidden flex-1 overflow-y-auto p-5">
-      <div class="max-w-3xl mx-auto space-y-4">
+      <div class="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div class="bg-white rounded-2xl border border-gray-100 p-5">
           <h3 class="text-base font-bold text-gray-900 mb-2"><i class="fas fa-file-lines mr-2 text-indigo-600"></i>沟通备忘录</h3>
           <p class="text-sm text-gray-500 mb-4">微信为主沟通，系统沉淀共识。请结构化记录并走确认流程。</p>
