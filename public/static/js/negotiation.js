@@ -1313,6 +1313,7 @@
       var now = new Date().toISOString();
       var selectedId = state.memoEditor.selectedMemoId;
       var memo = (state.memos || []).find(function(item) { return item.id === selectedId; });
+      var currentVersion = null;
 
       if (!memo) {
         memo = {
@@ -1329,25 +1330,42 @@
           showToast('warning', '当前版本不可直接编辑', '请先点击「基于当前版本生成修订稿」');
           return null;
         }
-        memo.currentVersion = (memo.currentVersion || 0) + 1;
+        currentVersion = getMemoCurrentVersion(memo);
+        var canUpdateCurrentDraft = memo.status === 'draft' && !!currentVersion;
+        if (!canUpdateCurrentDraft) {
+          memo.currentVersion = (memo.currentVersion || 0) + 1;
+        }
         memo.status = targetStatus;
         memo.updatedAt = now;
       }
 
-      var nextVersion = {
-        version: memo.currentVersion,
-        createdAt: now,
-        updatedAt: now,
-        author: (currentUser && (currentUser.displayName || currentUser.username)) || '我方',
-        role: currentPerspective || 'investor',
-        topic: payload.topic,
-        agreedContent: payload.agreedContent,
-        summaryBody: payload.summaryBody,
-        evidenceAnchors: normalizeMemoEvidenceAnchors(payload.evidenceAnchors),
-        confirmMeta: normalizeMemoConfirmMeta(null, targetStatus),
-        rejectMeta: null
-      };
-      memo.versions.push(nextVersion);
+      if (!currentVersion || currentVersion.version !== memo.currentVersion) {
+        currentVersion = {
+          version: memo.currentVersion,
+          createdAt: now,
+          updatedAt: now,
+          author: (currentUser && (currentUser.displayName || currentUser.username)) || '我方',
+          role: currentPerspective || 'investor',
+          topic: payload.topic,
+          agreedContent: payload.agreedContent,
+          summaryBody: payload.summaryBody,
+          evidenceAnchors: normalizeMemoEvidenceAnchors(payload.evidenceAnchors),
+          confirmMeta: normalizeMemoConfirmMeta(null, targetStatus),
+          rejectMeta: null
+        };
+        memo.versions.push(currentVersion);
+      } else {
+        currentVersion.updatedAt = now;
+        currentVersion.author = (currentUser && (currentUser.displayName || currentUser.username)) || '我方';
+        currentVersion.role = currentPerspective || 'investor';
+        currentVersion.topic = payload.topic;
+        currentVersion.agreedContent = payload.agreedContent;
+        currentVersion.summaryBody = payload.summaryBody;
+        currentVersion.evidenceAnchors = normalizeMemoEvidenceAnchors(payload.evidenceAnchors);
+        currentVersion.confirmMeta = normalizeMemoConfirmMeta(null, targetStatus);
+        currentVersion.rejectMeta = null;
+      }
+
       state.memoEditor.selectedMemoId = memo.id;
       setMemoDiffToLatestPair(state, memo);
       saveNegotiationState();
