@@ -88,6 +88,9 @@
       if (typeof state.memoEditor.diffVersionB !== 'string') {
         state.memoEditor.diffVersionB = '';
       }
+      if (typeof state.memoEditor.dismissNewRecord !== 'boolean') {
+        state.memoEditor.dismissNewRecord = false;
+      }
     }
 
     function migrateMemoStateIfNeeded(state) {
@@ -765,9 +768,21 @@
       if (!state) return;
       ensureMemoEditorState(state);
       state.memoEditor.selectedMemoId = '';
+      state.memoEditor.dismissNewRecord = false;
       setMemoLastPrimaryAction('new');
       setMemoFormData({});
       updateMemoEditorHint('当前为新建模式。必填：议题。');
+      saveNegotiationState();
+      renderMemoTab();
+    }
+
+    function dismissMemoNewRecord() {
+      var state = ensureNegotiationState();
+      if (!state) return;
+      ensureMemoEditorState(state);
+      state.memoEditor.selectedMemoId = '';
+      state.memoEditor.dismissNewRecord = true;
+      state.memoEditor.lastPrimaryAction = '';
       saveNegotiationState();
       renderMemoTab();
     }
@@ -1509,7 +1524,8 @@
       }
 
       var cards = [];
-      if (canCreateNew && !selectedMemo) {
+      var showNewRecordCard = canCreateNew && !selectedMemo && !state.memoEditor.dismissNewRecord;
+      if (showNewRecordCard) {
         cards.push(
           '<div class="bg-white rounded-2xl border border-indigo-300 overflow-hidden">' +
             '<div class="p-4 bg-indigo-50/60 border-b border-indigo-100 flex items-center justify-between">' +
@@ -1517,7 +1533,10 @@
                 '<p class="text-sm font-semibold text-indigo-800">新建沟通备忘录</p>' +
                 '<p class="text-[11px] text-indigo-600 mt-0.5">统一视图：信息一致，仅动作按权限控制。</p>' +
               '</div>' +
-              '<span class="text-[10px] px-1.5 py-0.5 rounded bg-white border border-indigo-200 text-indigo-700">草稿</span>' +
+              '<div class="flex items-center gap-2">' +
+                '<span class="text-[10px] px-1.5 py-0.5 rounded bg-white border border-indigo-200 text-indigo-700">草稿</span>' +
+                '<button onclick="dismissMemoNewRecord()" class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg" title="关闭"><i class="fas fa-times text-xs"></i></button>' +
+              '</div>' +
             '</div>' +
             '<div class="px-4 pb-4">' +
               buildMemoEditorBlock() +
