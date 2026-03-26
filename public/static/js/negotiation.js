@@ -109,10 +109,12 @@
         if (memo && Array.isArray(memo.versions)) {
           memo.versions = memo.versions.map(function(version) {
             var v = version || {};
+            var fallbackVersionStatus = (memo.status === 'confirmed' && v.version === memo.currentVersion) ? 'confirmed' : '';
             return {
               ...v,
               evidenceAnchors: normalizeMemoEvidenceAnchors(v.evidenceAnchors),
-              actionItems: normalizeMemoActionItems(v.actionItems)
+              actionItems: normalizeMemoActionItems(v.actionItems),
+              confirmMeta: normalizeMemoConfirmMeta(v.confirmMeta, fallbackVersionStatus, v.author || '我方', v.updatedAt || v.createdAt || now)
             };
           });
           if (typeof memo.currentVersion !== 'number' || memo.currentVersion < 1) {
@@ -133,6 +135,8 @@
         var legacyStatus = memo && memo.status === 'confirmed' ? 'confirmed' : 'pending_confirmation';
         var legacyAt = (memo && memo.at) || now;
         var legacyContent = (memo && memo.content) || '';
+        var legacyActor = (currentUser && (currentUser.displayName || currentUser.username)) || '我方';
+        var legacyConfirmMeta = normalizeMemoConfirmMeta(null, legacyStatus, legacyActor, legacyAt);
         return {
           id: (memo && memo.id) || ('M_' + Date.now() + '_' + idx),
           currentVersion: 1,
@@ -152,7 +156,9 @@
             relatedProposalId: '',
             summaryBody: legacyContent,
             evidenceAnchors: [],
-            actionItems: []
+            actionItems: [],
+            confirmMeta: legacyConfirmMeta,
+            rejectMeta: null
           }]
         };
       });
@@ -184,6 +190,51 @@
           status: (src.status === 'doing' || src.status === 'done') ? src.status : 'todo'
         };
       });
+    }
+
+    function normalizeMemoConfirmMeta(raw, fallbackStatus, fallbackActor, fallbackAt) {
+      var actor = fallbackActor || '我方';
+      var at = fallbackAt || new Date().toISOString();
+      var base = { investor: null, financer: null };
+      if (raw && (raw.investor || raw.financer)) {
+        return {
+          investor: raw.investor ? { actor: raw.investor.actor || actor, at: raw.investor.at || at } : null,
+          financer: raw.financer ? { actor: raw.financer.actor || actor, at: raw.financer.at || at } : null
+        };
+      }
+      if (raw && raw.role) {
+        var roleKey = raw.role === 'financer' ? 'financer' : 'investor';
+        base[roleKey] = { actor: raw.actor || actor, at: raw.at || at };
+      }
+      if (fallbackStatus === 'confirmed' && !base.investor && !base.financer) {
+        base.investor = { actor: actor, at: at };
+        base.financer = { actor: actor, at: at };
+      }
+      return base;
+    }
+
+    function getMemoConfirmCount(confirmMeta) {
+      var meta = normalizeMemoConfirmMeta(confirmMeta);
+      var count = 0;
+      if (meta.investor) count += 1;
+      if (meta.financer) count += 1;
+      return count;
+    }
+
+    function isMemoVersionFullyConfirmed(version) {
+      if (!version) return false;
+      return getMemoConfirmCount(version.confirmMeta) >= 2;
+    }
+
+    function getCurrentMemoRoleKey() {
+      return currentPerspective === 'financer' ? 'financer' : 'investor';
+    }
+
+    function hasCurrentRoleConfirmed(version) {
+      if (!version) return false;
+      var roleKey = getCurrentMemoRoleKey();
+      var meta = normalizeMemoConfirmMeta(version.confirmMeta);
+      return !!meta[roleKey];
     }
 
     function getMemoCurrentVersion(memo) {
@@ -644,8 +695,20 @@
       var versions = getMemoVersionsDesc(memo);
       history.innerHTML = versions.map(function(v) {
         var isCurrent = v.version === memo.currentVersion;
-        var vStatus = v.confirmMeta ? 'confirmed' : (v.rejectMeta ? 'rejected' : (isCurrent ? memo.status : 'history'));
-        var statusLabel = vStatus === 'confirmed' ? '已确认' : vStatus === 'rejected' ? '已拒绝' : vStatus === 'pending_confirmation' ? '待确认' : vStatus === 'draft' ? '草稿' : '历史版本';
+        var confirmMeta = normalizeMemoConfirmMeta(v.confirmMeta, memo.status, v.author || '我方', v.updatedAt || v.createdAt);
+        var confirmCount = getMemoConfirmCount(confirmMeta);
+        var fullyConfirmed = isMemoVersionFullyConfirmed({ confirmMeta: confirmMeta });
+        var inferredPending = !fullyConfirmed && !v.rejectMeta && ((isCurrent && memo.status === 'pending_confirmation') || (!isCurrent && confirmCount > 0));
+        var vStatus = fullyConfirmed ? 'confirmed' : (v.rejectMeta ? 'rejected' : (inferredPending ? 'pending_confirmation' : (isCurrent ? memo.status : 'history')));
+        var statusLabel = vStatus === 'confirmed'
+          ? '已确认（2/2）'
+          : vStatus === 'rejected'
+            ? '已拒绝'
+            : vStatus === 'pending_confirmation'
+              ? ('待确认（' + confirmCount + '/2）')
+              : vStatus === 'draft'
+                ? '草稿'
+                : '历史版本';
         var statusCls = vStatus === 'confirmed' ? 'bg-emerald-100 text-emerald-700'
           : vStatus === 'rejected' ? 'bg-rose-100 text-rose-700'
           : vStatus === 'pending_confirmation' ? 'bg-amber-100 text-amber-700'
@@ -658,6 +721,7 @@
             '<span class="text-[10px] px-1.5 py-0.5 rounded ' + statusCls + '">' + statusLabel + '</span>' +
           '</div>' +
           '<p class="text-[11px] text-gray-500 mt-1">编辑人：' + (v.author || '--') + ' · 角色：' + (v.role || '--') + ' · 时间：' + at + '</p>' +
+          '<p class="text-[11px] text-gray-400 mt-1">双向确认：' + confirmCount + '/2（投资方' + (confirmMeta.investor ? '已确认' : '未确认') + '，融资方' + (confirmMeta.financer ? '已确认' : '未确认') + '）</p>' +
           '<div class="mt-1.5 flex items-center gap-2">' +
             '<button onclick="updateMemoDiffSelection(&quot;A&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本A</button>' +
             '<button onclick="updateMemoDiffSelection(&quot;B&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本B</button>' +
@@ -853,6 +917,9 @@
       var rejectReason = document.getElementById('memoRejectReason');
 
       var selectedPending = !!selectedMemo && selectedMemo.status === 'pending_confirmation';
+      var selectedVersion = selectedMemo ? getMemoCurrentVersion(selectedMemo) : null;
+      var roleConfirmed = selectedPending && hasCurrentRoleConfirmed(selectedVersion);
+      var confirmCount = selectedVersion ? getMemoConfirmCount(selectedVersion.confirmMeta) : 0;
       var editable = canInvestorEditMemo(selectedMemo);
       if (!selectedMemo) editable = true;
 
@@ -866,12 +933,17 @@
       if (revisionBtn) revisionBtn.classList.toggle('hidden', !showRevision);
 
       if (financerActions) financerActions.classList.toggle('hidden', !selectedMemo);
-      if (confirmBtn) confirmBtn.disabled = !selectedPending;
+      if (confirmBtn) {
+        confirmBtn.disabled = !selectedPending || roleConfirmed;
+        confirmBtn.textContent = roleConfirmed ? '已确认（本方）' : '确认';
+      }
       if (rejectBtn) rejectBtn.disabled = !selectedPending;
       if (rejectReason) rejectReason.disabled = !selectedPending;
 
       if (selectedMemo && !editable) {
         updateMemoEditorHint('当前版本为「' + getMemoStatusMeta(selectedMemo.status).label + '」，不可原地编辑；请先生成修订稿。');
+      } else if (selectedPending && roleConfirmed) {
+        updateMemoEditorHint('当前版本已完成本方确认（' + confirmCount + '/2），等待对方确认后生效。');
       }
     }
 
@@ -1205,9 +1277,13 @@
       if (memos.length === 0) {
         list.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无符合筛选条件的备忘录，请调整状态或关键词。</p>';
       } else {
-        list.innerHTML = memos.map(function(m) {
+      list.innerHTML = memos.map(function(m) {
         var currentVersion = getMemoCurrentVersion(m);
         var statusMeta = getMemoStatusMeta(m.status);
+        var confirmCount = getMemoConfirmCount(currentVersion && currentVersion.confirmMeta);
+        var statusText = statusMeta.label;
+        if (m.status === 'pending_confirmation') statusText = '待确认（' + confirmCount + '/2）';
+        if (m.status === 'confirmed') statusText = '已确认（2/2）';
         var time = (m.updatedAt || m.createdAt || (currentVersion && currentVersion.updatedAt) || '').slice(0, 16).replace('T', ' ');
         var selected = state.memoEditor.selectedMemoId === m.id;
         var summary = (currentVersion && currentVersion.summaryBody) || (currentVersion && currentVersion.agreedContent) || '';
@@ -1232,7 +1308,7 @@
         return '<div onclick="selectMemoForEdit(\'' + m.id + '\')" class="w-full text-left p-3 rounded-xl border transition-colors cursor-pointer ' + (selected ? 'border-indigo-300 bg-indigo-50' : 'border-indigo-100 bg-white hover:bg-indigo-50/40') + '">' +
           '<div class="flex items-center justify-between mb-1.5">' +
             '<div class="text-xs font-semibold text-indigo-700">纪要 · ' + m.id + ' · V' + m.currentVersion + '</div>' +
-            '<span class="text-[10px] px-1.5 py-0.5 rounded ' + statusMeta.cls + '">' + statusMeta.label + '</span>' +
+            '<span class="text-[10px] px-1.5 py-0.5 rounded ' + statusMeta.cls + '">' + statusText + '</span>' +
           '</div>' +
           '<p class="text-xs text-gray-700 mb-1">议题：' + ((currentVersion && currentVersion.topic) || '--') + '</p>' +
           '<p class="text-xs text-gray-600 leading-relaxed">' + (shortSummary || '无摘要') + '</p>' +
@@ -1260,7 +1336,11 @@
       if (!selectedVersion) return;
       setMemoFormData(selectedVersion);
       var selectedMeta = getMemoStatusMeta(selectedMemo.status);
-      updateMemoEditorHint('当前编辑：' + selectedMemo.id + ' · V' + selectedMemo.currentVersion + ' · ' + selectedMeta.label + '。');
+      var selectedConfirmCount = getMemoConfirmCount(selectedVersion.confirmMeta);
+      var selectedStatusLabel = selectedMeta.label;
+      if (selectedMemo.status === 'pending_confirmation') selectedStatusLabel = '待确认（' + selectedConfirmCount + '/2）';
+      if (selectedMemo.status === 'confirmed') selectedStatusLabel = '已确认（2/2）';
+      updateMemoEditorHint('当前编辑：' + selectedMemo.id + ' · V' + selectedMemo.currentVersion + ' · ' + selectedStatusLabel + '。');
       renderMemoActionBar(state, selectedMemo);
       renderMemoVersionHistory(state, selectedMemo);
       renderMemoWeChatPanel(state, selectedMemo);
@@ -1321,7 +1401,7 @@
         summaryBody: payload.summaryBody,
         evidenceAnchors: normalizeMemoEvidenceAnchors(payload.evidenceAnchors),
         actionItems: normalizeMemoActionItems(payload.actionItems),
-        confirmMeta: null,
+        confirmMeta: normalizeMemoConfirmMeta(null, targetStatus),
         rejectMeta: null
       };
       memo.versions.push(nextVersion);
@@ -1382,7 +1462,7 @@
         evidenceAnchors: normalizeMemoEvidenceAnchors(baseVersion.evidenceAnchors),
         actionItems: normalizeMemoActionItems(baseVersion.actionItems),
         revisedFromVersion: baseVersion.version,
-        confirmMeta: null,
+        confirmMeta: normalizeMemoConfirmMeta(null, 'draft'),
         rejectMeta: null
       });
       state.memoEditor.selectedMemoId = memo.id;
@@ -1425,21 +1505,35 @@
         return;
       }
       var version = getMemoCurrentVersion(memo);
+      if (!version) return;
       var now = new Date().toISOString();
-      memo.status = 'confirmed';
-      memo.updatedAt = now;
-      if (version) {
-        version.confirmMeta = {
-          role: currentPerspective || 'financer',
-          actor: (currentUser && (currentUser.displayName || currentUser.username)) || '融资方',
-          at: now
-        };
-        version.rejectMeta = null;
+      var roleKey = getCurrentMemoRoleKey();
+      version.confirmMeta = normalizeMemoConfirmMeta(version.confirmMeta, memo.status, (currentUser && (currentUser.displayName || currentUser.username)) || '我方', now);
+      if (version.confirmMeta[roleKey]) {
+        showToast('info', '已完成本方确认', '当前版本已记录你的确认，等待对方确认');
+        renderMemoTab();
+        return;
       }
+      version.confirmMeta[roleKey] = {
+        actor: (currentUser && (currentUser.displayName || currentUser.username)) || (roleKey === 'financer' ? '融资方' : '投资方'),
+        at: now
+      };
+      version.rejectMeta = null;
+      var confirmCount = getMemoConfirmCount(version.confirmMeta);
+      memo.status = confirmCount >= 2 ? 'confirmed' : 'pending_confirmation';
+      memo.updatedAt = now;
       saveNegotiationState();
-      pushTimelineEvent('memo_confirmed', '确认备忘录（' + memo.id + ' · V' + memo.currentVersion + '）', getPublicTermsFromWorkbench());
+      if (memo.status === 'confirmed') {
+        pushTimelineEvent('memo_confirmed', '完成双向确认（' + memo.id + ' · V' + memo.currentVersion + '）', getPublicTermsFromWorkbench());
+      } else {
+        pushTimelineEvent('memo_confirm_progress', '记录单方确认（' + memo.id + ' · V' + memo.currentVersion + '，' + confirmCount + '/2）', getPublicTermsFromWorkbench());
+      }
       renderMemoTab();
-      showToast('success', '已确认', memo.id + ' 已确认');
+      if (memo.status === 'confirmed') {
+        showToast('success', '双方确认完成', memo.id + ' 已正式确认');
+      } else {
+        showToast('info', '已记录本方确认', memo.id + ' 当前确认进度 ' + confirmCount + '/2');
+      }
     }
 
     function rejectSelectedMemo() {
@@ -1465,6 +1559,7 @@
       memo.status = 'rejected';
       memo.updatedAt = now;
       if (version) {
+        version.confirmMeta = normalizeMemoConfirmMeta(version.confirmMeta, 'rejected', (currentUser && (currentUser.displayName || currentUser.username)) || '我方', now);
         version.rejectMeta = {
           role: currentPerspective || 'financer',
           actor: (currentUser && (currentUser.displayName || currentUser.username)) || '融资方',
@@ -1821,6 +1916,7 @@
         memo_uploaded: { label: '上传纪要', category: 'memo' },
         memo_draft_saved: { label: '保存备忘录草稿', category: 'memo' },
         memo_submitted: { label: '提交备忘录确认', category: 'memo' },
+        memo_confirm_progress: { label: '单方确认进度', category: 'memo' },
         memo_confirmed: { label: '备忘录已确认', category: 'memo' },
         memo_rejected: { label: '备忘录已拒绝', category: 'memo' },
         memo_revised: { label: '备忘录已修订', category: 'memo' },
