@@ -900,6 +900,7 @@
       var topNewBtn = document.getElementById('memoBtnNewTop');
       var revisionBtn = document.getElementById('memoBtnCreateRevision');
       var financerActions = document.getElementById('memoFinancerActions');
+      var confirmActionsRow = document.getElementById('memoConfirmActionsRow');
       var confirmBtn = document.getElementById('memoBtnConfirm');
       var rejectBtn = document.getElementById('memoBtnReject');
       var actionHint = document.getElementById('memoActionHint');
@@ -942,9 +943,19 @@
         confirmBtn.disabled = !perms.canConfirm;
         confirmBtn.textContent = perms.roleConfirmed ? '已确认（本方）' : '确认';
       }
+      var showRejectBtn = !!perms.canReject;
       if (rejectBtn) {
-        rejectBtn.classList.toggle('hidden', !perms.canReject);
-        rejectBtn.disabled = !perms.canReject;
+        rejectBtn.classList.toggle('hidden', !showRejectBtn);
+        rejectBtn.disabled = !showRejectBtn;
+      }
+      if (confirmActionsRow) {
+        confirmActionsRow.classList.toggle('grid-cols-2', showRejectBtn);
+        confirmActionsRow.classList.toggle('grid-cols-1', !showRejectBtn);
+      }
+      if (confirmBtn) {
+        confirmBtn.classList.toggle('w-full', !showRejectBtn);
+        confirmBtn.classList.toggle('col-span-2', !showRejectBtn);
+        confirmBtn.classList.toggle('col-span-1', showRejectBtn);
       }
       if (actionHint) {
         var hintText = '';
@@ -1424,7 +1435,7 @@
             '</div>' +
             '<button id="memoBtnCreateRevision" onclick="createMemoRevision()" class="hidden w-full px-3 py-2 text-xs font-semibold rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed">基于当前版本生成修订稿</button>' +
             '<div id="memoFinancerActions" class="hidden space-y-2">' +
-              '<div class="grid grid-cols-2 gap-2">' +
+              '<div id="memoConfirmActionsRow" class="grid grid-cols-2 gap-2">' +
                 '<button id="memoBtnConfirm" onclick="confirmSelectedMemo()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">确认</button>' +
                 '<button id="memoBtnReject" onclick="openMemoRejectModal()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed">拒绝</button>' +
               '</div>' +
