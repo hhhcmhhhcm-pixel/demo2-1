@@ -876,8 +876,6 @@ export const MAIN_HTML = `
           </div>
         </div>
       </div>
-    </div>
-
     <!-- 反提案弹窗 -->
     <div id="counterOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40" onclick="if(event.target===this)closeCounterOverlay()">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto mx-4">
