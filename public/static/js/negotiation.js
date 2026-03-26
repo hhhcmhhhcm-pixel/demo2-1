@@ -1361,6 +1361,46 @@
                 '<p class="text-xs text-gray-400">暂无备忘录文件</p>' +
               '</div>' +
             '</div>' +
+          '</div>';
+      }
+
+      function buildMemoReadonlyContent(version) {
+        var agreed = (version && version.agreedContent) ? escapeMemoText(version.agreedContent) : '（空）';
+        var summary = (version && version.summaryBody) ? escapeMemoText(version.summaryBody) : '（空）';
+        var evidences = normalizeMemoEvidenceAnchors(version && version.evidenceAnchors);
+        var evidenceHtml = evidences.length
+          ? evidences.map(function(ev, i) {
+              var when = (ev.sourceAt || ev.uploadedAt) ? fmtMemoTime(ev.sourceAt || ev.uploadedAt) : '--';
+              return '<div class="p-2 rounded bg-gray-50 border border-gray-100 text-[11px] text-gray-600">' +
+                '<span class="font-medium text-gray-700">#' + (i + 1) + '</span> ' + escapeMemoText(ev.fileName || '未命名文件') +
+                ' · ' + escapeMemoText(formatMemoFileSize(ev.fileSize)) +
+                ' · ' + escapeMemoText(ev.mimeType || '--') +
+                ' · 来源：' + escapeMemoText(ev.sourceRole || '--') +
+                ' · ' + escapeMemoText(when) +
+                (ev.note ? ('<br><span class="text-gray-400">' + escapeMemoText(ev.note) + '</span>') : '') +
+              '</div>';
+            }).join('')
+          : '<p class="text-xs text-gray-400">暂无备忘录文件</p>';
+        return '' +
+          '<div class="mt-3 space-y-3">' +
+            '<div>' +
+              '<p class="text-xs text-gray-500 mb-1">达成内容</p>' +
+              '<pre class="whitespace-pre-wrap text-sm text-gray-700 p-3 rounded-lg border border-gray-100 bg-gray-50">' + agreed + '</pre>' +
+            '</div>' +
+            '<div>' +
+              '<p class="text-xs text-gray-500 mb-1">摘要正文</p>' +
+              '<pre class="whitespace-pre-wrap text-sm text-gray-700 p-3 rounded-lg border border-gray-100 bg-gray-50">' + summary + '</pre>' +
+            '</div>' +
+            '<div class="border border-gray-100 rounded-lg p-3 bg-gray-50/60">' +
+              '<p class="text-xs font-semibold text-gray-600 mb-2">备忘录文件（' + evidences.length + '）</p>' +
+              '<div class="space-y-2">' + evidenceHtml + '</div>' +
+            '</div>' +
+          '</div>';
+      }
+
+      function buildMemoActionBlock() {
+        return '' +
+          '<div class="mt-3 space-y-2">' +
             '<div class="grid grid-cols-2 gap-2">' +
               '<button id="memoBtnSaveDraft" onclick="saveMemoDraft()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed">保存草稿</button>' +
               '<button id="memoBtnSubmitConfirm" onclick="submitMemoForConfirmation()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">提交确认</button>' +
@@ -1418,6 +1458,7 @@
 
       function buildMemoCard(memo, expanded) {
         var version = getMemoCurrentVersion(memo);
+        var perms = getMemoActionPermissions(memo);
         var statusMeta = getMemoStatusMeta(memo.status);
         var statusText = getMemoStatusText(memo, version);
         var confirmCount = getMemoConfirmCount(version && version.confirmMeta);
@@ -1451,7 +1492,8 @@
             (expanded
               ? ('<div class="px-4 pb-4 border-t border-gray-100">' +
                   buildMemoReadonlyInfo(version) +
-                  buildMemoEditorBlock() +
+                  (perms.canEdit ? buildMemoEditorBlock() : buildMemoReadonlyContent(version)) +
+                  buildMemoActionBlock() +
                   buildMemoVersionAndDiffPanels() +
                 '</div>')
               : '') +
@@ -1471,6 +1513,7 @@
             '</div>' +
             '<div class="px-4 pb-4">' +
               buildMemoEditorBlock() +
+              buildMemoActionBlock() +
             '</div>' +
           '</div>'
         );
