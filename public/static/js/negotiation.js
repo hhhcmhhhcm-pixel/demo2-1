@@ -1319,6 +1319,13 @@
       if (!selectedInList) selectedMemo = null;
       var roleKey = getCurrentMemoRoleKey();
       var canCreateNew = roleKey === 'investor';
+      var isNewMode = canCreateNew && !selectedMemo && ((state.memoEditor && state.memoEditor.lastPrimaryAction) || '') === 'new';
+
+      if (!selectedMemo && memos.length > 0 && !isNewMode) {
+        state.memoEditor.selectedMemoId = memos[0].id;
+        selectedMemo = memos[0];
+        saveNegotiationState();
+      }
 
       function fmtMemoTime(value) {
         return String(value || '').slice(0, 16).replace('T', ' ') || '--';
