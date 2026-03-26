@@ -572,8 +572,8 @@
         return;
       }
       var previousVersionNo = latestVersionNo - 1;
-      state.memoEditor.diffVersionA = String(latestVersionNo);
-      state.memoEditor.diffVersionB = String(previousVersionNo >= 1 ? previousVersionNo : latestVersionNo);
+      state.memoEditor.diffVersionA = String(previousVersionNo >= 1 ? previousVersionNo : latestVersionNo);
+      state.memoEditor.diffVersionB = String(latestVersionNo);
     }
 
     function renderMemoDiffSelectors(state, memo) {
