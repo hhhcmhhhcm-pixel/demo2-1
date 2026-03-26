@@ -595,7 +595,7 @@
         return text.trim() ? text : '（空）';
       }
 
-      function renderDiffLine(prefix, line, type) {
+      function renderDiffLine(lineNo, prefix, line, type) {
         var rowCls = type === 'add'
           ? 'bg-emerald-50/70'
           : type === 'del'
@@ -614,6 +614,7 @@
         var safeLine = escapeMemoText(line);
         if (!safeLine) safeLine = '&nbsp;';
         return '<div class="flex items-start px-2 py-0.5 ' + rowCls + '">' +
+          '<span class="inline-block w-7 shrink-0 text-right pr-2 text-[10px] text-gray-400 select-none">' + lineNo + '</span>' +
           '<span class="inline-block w-4 shrink-0 font-bold ' + prefixCls + '">' + prefix + '</span>' +
           '<span class="break-words whitespace-pre-wrap font-mono text-[11px] leading-5 ' + textCls + '">' + safeLine + '</span>' +
         '</div>';
@@ -632,21 +633,32 @@
         var changed = aVal !== bVal;
         var aLines = aVal.split('\n');
         var bLines = bVal.split('\n');
-        var diffLines = [];
-        diffLines.push('<div class="px-2 py-1 border-b border-gray-100 bg-slate-50 text-[10px] font-semibold text-slate-600">@@ ' + field.label + ' @@</div>');
-        if (changed) {
-          aLines.forEach(function(line) { diffLines.push(renderDiffLine('-', line, 'del')); });
-          bLines.forEach(function(line) { diffLines.push(renderDiffLine('+', line, 'add')); });
-        } else {
-          aLines.forEach(function(line) { diffLines.push(renderDiffLine(' ', line, 'ctx')); });
+        var maxLines = Math.max(aLines.length, bLines.length);
+        var leftRows = [];
+        var rightRows = [];
+        for (var i = 0; i < maxLines; i += 1) {
+          var aLine = aLines[i] == null ? '' : aLines[i];
+          var bLine = bLines[i] == null ? '' : bLines[i];
+          var lineChanged = aLine !== bLine;
+          leftRows.push(renderDiffLine(i + 1, lineChanged ? '-' : ' ', aLine, lineChanged ? 'del' : 'ctx'));
+          rightRows.push(renderDiffLine(i + 1, lineChanged ? '+' : ' ', bLine, lineChanged ? 'add' : 'ctx'));
         }
         return '<div class="rounded-lg border ' + (changed ? 'border-cyan-200' : 'border-gray-200') + ' overflow-hidden bg-white">' +
           '<div class="flex items-center justify-between px-3 py-2 border-b border-gray-100">' +
             '<span class="text-xs font-semibold text-gray-700">' + field.label + '</span>' +
             '<span class="text-[10px] px-1.5 py-0.5 rounded ' + (changed ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-200 text-gray-600') + '">' + (changed ? '已修改' : '无变化') + '</span>' +
           '</div>' +
-          '<div class="px-3 py-1.5 border-b border-gray-100 text-[10px] text-gray-500 bg-gray-50">V' + versionA.version + ' -> V' + versionB.version + '</div>' +
-          '<div class="font-mono">' + diffLines.join('') + '</div>' +
+          '<div class="px-3 py-1.5 border-b border-gray-100 text-[10px] text-gray-500 bg-gray-50 font-mono">@@ ' + field.label + ' @@</div>' +
+          '<div class="grid grid-cols-1 md:grid-cols-2">' +
+            '<div class="border-r border-gray-100">' +
+              '<div class="px-3 py-1.5 text-[10px] font-semibold text-rose-700 bg-rose-50/70 border-b border-gray-100">V' + versionA.version + '（旧）</div>' +
+              '<div class="font-mono">' + leftRows.join('') + '</div>' +
+            '</div>' +
+            '<div>' +
+              '<div class="px-3 py-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50/70 border-b border-gray-100">V' + versionB.version + '（新）</div>' +
+              '<div class="font-mono">' + rightRows.join('') + '</div>' +
+            '</div>' +
+          '</div>' +
         '</div>';
       }).join('');
     }
