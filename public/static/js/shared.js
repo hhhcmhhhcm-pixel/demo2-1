@@ -176,6 +176,7 @@
         if (currentPerspective === 'financer') showToast('info', '已切换融资方视角', '主页面已隐藏评估通相关区域');
         else showToast('info', '已切换投资者视角', '主页面已恢复评估通相关区域');
       }
+      if (typeof updateIntentUnreadDot === 'function') updateIntentUnreadDot();
     }
 
     function togglePerspective() {
@@ -209,10 +210,14 @@
         refreshWorkbenchPrefill();
         renderWorkbench();
       }
-      if (tab === 'intent') renderIntentTab();
+      if (tab === 'intent') {
+        renderIntentTab();
+        if (currentPerspective === 'financer' && typeof markIntentRequestsAsRead === 'function') markIntentRequestsAsRead();
+      }
       if (tab === 'negotiation') renderNegotiationTab();
       if (tab === 'memo') renderMemoTab();
       if (tab === 'timeline') renderTimelineTab();
+      if (typeof updateIntentUnreadDot === 'function') updateIntentUnreadDot();
     }
 
     function setDashboardViewMode(mode) {

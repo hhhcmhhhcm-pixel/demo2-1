@@ -1,3 +1,194 @@
+    // ==================== 意向红点通知 ====================
+    function saveIntentReadState() {
+      localStorage.setItem('ec_intentReadByDeal', JSON.stringify(intentReadByDeal));
+    }
+
+    function markIntentRequestsAsRead() {
+      if (!currentDeal) return;
+      var dealId = currentDeal.id;
+      var state = intentByDeal[dealId];
+      if (!state || !Array.isArray(state.requests)) return;
+      if (!intentReadByDeal[dealId]) intentReadByDeal[dealId] = {};
+      var now = Date.now();
+      state.requests.forEach(function(r) {
+        intentReadByDeal[dealId][r.id] = now;
+      });
+      saveIntentReadState();
+      updateIntentUnreadDot();
+    }
+
+    function getIntentUnreadCount() {
+      if (!currentDeal) return 0;
+      var dealId = currentDeal.id;
+      var state = intentByDeal[dealId];
+      if (!state || !Array.isArray(state.requests) || !state.requests.length) return 0;
+      var readMap = intentReadByDeal[dealId] || {};
+      var count = 0;
+      state.requests.forEach(function(r) {
+        var lastRead = readMap[r.id] || 0;
+        var requestTime = new Date(r.updatedAt || r.submittedAt || 0).getTime();
+        if (requestTime > lastRead) count++;
+      });
+      return count;
+    }
+
+    function updateIntentUnreadDot() {
+      var dot = document.getElementById('intentUnreadDot');
+      if (!dot) return;
+      if (currentPerspective !== 'financer') {
+        dot.classList.add('hidden');
+        return;
+      }
+      var count = getIntentUnreadCount();
+      if (count > 0) {
+        dot.classList.remove('hidden');
+        dot.textContent = String(count);
+      } else {
+        dot.classList.add('hidden');
+      }
+    }
+
+    // ==================== 投资方模拟画像 ====================
+    // 投资方模拟画像（根据 fromName hash 生成稳定的模拟数据）
+    var INVESTOR_PROFILES = [
+      { type: '私募股权基金', aum: '12.5亿', preference: 'RBF / 收入分成', deals: 23, region: '华东' },
+      { type: '产业投资基金', aum: '8.2亿', preference: '股权+RBF混合', deals: 15, region: '华南' },
+      { type: '家族办公室', aum: '5.8亿', preference: '保守型RBF', deals: 9, region: '华北' },
+      { type: '天使投资机构', aum: '3.1亿', preference: '早期高成长', deals: 31, region: '全国' },
+      { type: '银行系投资平台', aum: '25.0亿', preference: '低风险稳健型', deals: 47, region: '长三角' },
+      { type: '独立投资人', aum: '1.2亿', preference: '餐饮零售专注', deals: 6, region: '西南' }
+    ];
+
+    function getInvestorProfile(fromName) {
+      var hash = 0;
+      var name = fromName || '投资方';
+      for (var i = 0; i < name.length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i);
+      var idx = Math.abs(hash) % INVESTOR_PROFILES.length;
+      return INVESTOR_PROFILES[idx];
+    }
+
+    function toggleIntentCard(requestId) {
+      if (expandedIntentCards.has(requestId)) {
+        expandedIntentCards.delete(requestId);
+      } else {
+        expandedIntentCards.add(requestId);
+      }
+      var body = document.getElementById('intentCardBody-' + requestId);
+      var chevron = document.getElementById('intentCardChevron-' + requestId);
+      if (body) body.classList.toggle('hidden');
+      if (chevron) chevron.classList.toggle('rotate-180');
+    }
+
+    function handleFinancerCardAction(requestId, status) {
+      if (!currentDeal) return;
+      var state = ensureIntentState();
+      if (!state) return;
+      state.selectedRequestId = requestId;
+      syncLegacyIntentFields(state);
+      saveIntentState();
+      handleIntentDecision(status);
+    }
+
+    function renderFinancerIntentCards(state) {
+      var container = document.getElementById('intentFinancerCardList');
+      var countEl = document.getElementById('intentFinancerCount');
+      var requests = getIntentRequests(state);
+      if (countEl) countEl.textContent = requests.length + ' 条';
+      if (!container) return;
+      if (!requests.length) {
+        container.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">暂无投资方意向请求。</p>';
+        return;
+      }
+      var activeConn = getActiveIntentRequest(state);
+      var readMap = (currentDeal && intentReadByDeal[currentDeal.id]) || {};
+      container.innerHTML = requests.map(function(req) {
+        var expanded = expandedIntentCards.has(req.id);
+        var profile = getInvestorProfile(req.fromName);
+        var statusMap = {
+          pending: { text: '待处理', cls: 'bg-amber-50 text-amber-700' },
+          accepted: { text: '已接受', cls: 'bg-emerald-50 text-emerald-700' },
+          rejected: { text: '已拒绝', cls: 'bg-rose-50 text-rose-700' }
+        };
+        var st = statusMap[req.response] || statusMap.pending;
+        var at = req.submittedAt ? req.submittedAt.slice(0, 16).replace('T', ' ') : '--';
+        var locked = !!activeConn && activeConn.id !== req.id;
+        // 未读检测
+        var lastRead = readMap[req.id] || 0;
+        var requestTime = new Date(req.updatedAt || req.submittedAt || 0).getTime();
+        var isUnread = requestTime > lastRead;
+        var canAccept = req.response === 'pending' && !locked;
+        var canReject = req.response === 'pending' || (req.response === 'accepted' && activeConn && activeConn.id === req.id);
+
+        // 意向摘要
+        var summary = (req.investmentType || req.amountBand || req.amountText || req.note || (Array.isArray(req.concerns) && req.concerns.length))
+          ? buildIntentSummaryText(req) : (req.summary || '无摘要');
+
+        // 投资方基础信息
+        var investorInfoHtml =
+          '<div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">' +
+            '<div class="p-2.5 rounded-lg bg-amber-50 border border-amber-100"><p class="text-[11px] text-gray-400">投资方</p><p class="text-xs font-semibold text-gray-800">' + (req.fromName || '投资方') + '</p></div>' +
+            '<div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">机构类型</p><p class="text-xs font-semibold text-gray-800">' + profile.type + '</p></div>' +
+            '<div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">管理规模</p><p class="text-xs font-semibold text-gray-800">' + profile.aum + '</p></div>' +
+            '<div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">投资偏好</p><p class="text-xs font-semibold text-gray-800">' + profile.preference + '</p></div>' +
+            '<div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">历史成交</p><p class="text-xs font-semibold text-gray-800">' + profile.deals + ' 笔</p></div>' +
+            '<div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">投资区域</p><p class="text-xs font-semibold text-gray-800">' + profile.region + '</p></div>' +
+          '</div>';
+
+        // 意向详情
+        var intentDetailHtml =
+          '<div class="mb-3">' +
+            '<h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-file-signature mr-1.5 text-cyan-500"></i>意向内容</h4>' +
+            '<div class="grid grid-cols-2 gap-2 mb-2">' +
+              '<div class="p-2 rounded-lg bg-teal-50 border border-teal-100"><p class="text-[11px] text-gray-400">投资类型</p><p class="text-xs font-semibold text-gray-800">' + (req.investmentType || 'RBF YITO') + '</p></div>' +
+              '<div class="p-2 rounded-lg bg-teal-50 border border-teal-100"><p class="text-[11px] text-gray-400">意向金额</p><p class="text-xs font-semibold text-gray-800">' + (req.amountText || getIntentAmountText(req)) + '</p></div>' +
+            '</div>' +
+            (Array.isArray(req.concerns) && req.concerns.length ? '<div class="flex flex-wrap gap-1 mb-2">' + req.concerns.map(function(c) { return '<span class="text-[10px] px-2 py-0.5 rounded bg-cyan-50 text-cyan-700 border border-cyan-100">' + c + '</span>'; }).join('') + '</div>' : '') +
+            (req.note ? '<p class="text-[11px] text-gray-500"><i class="fas fa-comment-dots mr-1 text-gray-400"></i>' + req.note + '</p>' : '') +
+          '</div>';
+
+        // 操作按钮
+        var actionHtml = '';
+        if (req.response === 'pending' || (req.response === 'accepted' && activeConn && activeConn.id === req.id)) {
+          var dis = locked ? ' disabled style="opacity:0.4;cursor:not-allowed;"' : '';
+          actionHtml = '<div class="flex gap-2 pt-3 border-t border-gray-100">' +
+            (canAccept ? '<button onclick="handleFinancerCardAction(\'' + req.id + '\',\'accepted\')" class="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"' + dis + '>接受沟通</button>' : '') +
+            (canReject ? '<button onclick="handleFinancerCardAction(\'' + req.id + '\',\'rejected\')" class="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700"' + dis + '>' + (req.response === 'accepted' ? '拒绝并释放锁定' : '暂不考虑') + '</button>' : '') +
+          '</div>';
+        }
+
+        var borderColor = req.response === 'accepted' ? 'border-emerald-200' : (req.response === 'rejected' ? 'border-rose-200' : 'border-gray-100');
+        var lockOverlay = locked ? ' opacity-60' : '';
+
+        return '<div class="bg-white rounded-2xl border ' + borderColor + ' overflow-hidden' + lockOverlay + '">' +
+          // 卡片头部
+          '<div class="p-4 cursor-pointer flex items-center justify-between hover:bg-gray-50 transition-colors" onclick="toggleIntentCard(\'' + req.id + '\')">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><span class="text-white text-xs font-bold">' + (req.fromName || '投')[0] + '</span></div>' +
+              '<div>' +
+                '<p class="text-sm font-semibold text-gray-800">' + (req.fromName || '投资方') + '</p>' +
+                '<p class="text-[11px] text-gray-400">' + profile.type + ' · ' + at + '</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="flex items-center gap-2">' +
+              (isUnread ? '<span class="inline-block w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></span>' : '') +
+              (locked ? '<span class="text-[10px] px-2 py-0.5 rounded bg-gray-200 text-gray-500">已锁定</span>' : '') +
+              '<span class="text-[10px] px-2 py-0.5 rounded ' + st.cls + '">' + st.text + '</span>' +
+              '<i id="intentCardChevron-' + req.id + '" class="fas fa-chevron-down text-gray-400 text-xs transition-transform' + (expanded ? ' rotate-180' : '') + '"></i>' +
+            '</div>' +
+          '</div>' +
+          // 卡片展开内容
+          '<div id="intentCardBody-' + req.id + '" class="px-4 pb-4' + (expanded ? '' : ' hidden') + '">' +
+            '<div class="border-t border-gray-100 pt-3">' +
+              '<h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-user-tie mr-1.5 text-amber-500"></i>投资方信息</h4>' +
+              investorInfoHtml +
+              intentDetailHtml +
+              actionHtml +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
     function getIntentRequests(state) {
       if (!state || !Array.isArray(state.requests)) return [];
       return state.requests;
@@ -50,7 +241,7 @@
       const dealId = currentDeal.id;
       if (!intentByDeal[dealId]) {
         intentByDeal[dealId] = {
-          investmentType: 'RBF固定',
+          investmentType: 'RBF YITO',
           amountBand: '300-500',
           customMin: '',
           customMax: '',
@@ -132,7 +323,7 @@
       const concerns = Array.isArray(source?.concerns) ? source.concerns : [];
       const concernsText = concerns.length > 0 ? concerns.join('、') : '暂无额外关注点';
       const noteText = source?.note ? '备注：' + source.note : '备注：无';
-      const invType = source?.investmentType || 'RBF固定';
+      const invType = source?.investmentType || 'RBF YITO';
       return '项目：' + currentDeal.name +
         '；投资类型：' + invType +
         '；意向金额：' + getIntentAmountText(source || {}) +
@@ -242,6 +433,16 @@
 
     function renderIntentPerspective(state) {
       const isFinancer = currentPerspective === 'financer';
+      // 切换融资方/投资方视图容器
+      var financerView = document.getElementById('intentFinancerView');
+      var investorView = document.getElementById('intentInvestorView');
+      if (financerView) financerView.classList.toggle('hidden', !isFinancer);
+      if (investorView) investorView.classList.toggle('hidden', isFinancer);
+      // 融资方走独立卡片渲染，不再操作投资方视图DOM
+      if (isFinancer) {
+        renderFinancerIntentCards(state);
+        return;
+      }
       const formTitle = document.getElementById('intentFormTitle');
       const summaryTitle = document.getElementById('intentSummaryTitle');
       const responseTitle = document.getElementById('intentResponseTitle');
@@ -314,7 +515,7 @@
       const noteEl = document.getElementById('intentNote');
       const selected = getSelectedIntentRequest(state, false);
       const formSource = currentPerspective === 'financer' && selected ? selected : state;
-      if (typeEl) typeEl.value = formSource.investmentType || 'RBF固定';
+      if (typeEl) typeEl.value = formSource.investmentType || 'RBF YITO';
       if (bandEl) bandEl.value = formSource.amountBand || '300-500';
       if (minEl) minEl.value = formSource.customMin || '';
       if (maxEl) maxEl.value = formSource.customMax || '';
@@ -327,6 +528,16 @@
       renderIntentPerspective(state);
       renderIntentRequestList(state);
       renderIntentSummaryAndResponse(state);
+
+      // 投资方视角：按钮文案根据是否已发送过意向动态切换
+      if (currentPerspective !== 'financer') {
+        var myName = (currentUser && (currentUser.displayName || currentUser.username)) || '投资方';
+        var hasExisting = state.requests.some(function(r) { return r.fromName === myName; });
+        var submitBtn = document.getElementById('btnSubmitIntent');
+        if (submitBtn) {
+          submitBtn.textContent = hasExisting ? '修改并更新意向' : '确认并发送意向';
+        }
+      }
     }
 
     function updateIntentAndPreview() {
@@ -334,7 +545,7 @@
       if (currentPerspective === 'financer') return;
       const state = ensureIntentState();
       if (!state) return;
-      state.investmentType = document.getElementById('intentInvestmentType')?.value || 'RBF固定';
+      state.investmentType = document.getElementById('intentInvestmentType')?.value || 'RBF YITO';
       state.amountBand = document.getElementById('intentAmountBand')?.value || '300-500';
       state.customMin = document.getElementById('intentCustomMin')?.value || '';
       state.customMax = document.getElementById('intentCustomMax')?.value || '';
@@ -384,40 +595,62 @@
           return;
         }
       }
-      // 提交前强制按当前字段重算摘要，避免“生成后又改字段”导致摘要过期
       state.summary = buildIntentSummaryText(state);
       if (!state.summary) return;
 
-      const request = {
-        id: 'IR_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-        submittedAt: new Date().toISOString(),
-        response: 'pending',
-        summary: state.summary,
-        fromName: currentUser?.displayName || currentUser?.username || '投资方',
-        investmentType: state.investmentType || 'RBF固定',
-        amountBand: state.amountBand || '300-500',
-        customMin: state.customMin || '',
-        customMax: state.customMax || '',
-        amountText: getIntentAmountText(state),
-        concerns: (state.concerns || []).slice(),
-        note: state.note || ''
-      };
+      // 查找当前投资方已有的意向请求
+      var myName = (currentUser && (currentUser.displayName || currentUser.username)) || '投资方';
+      var existing = state.requests.find(function(r) { return r.fromName === myName; });
 
-      state.requests.unshift(request);
-      state.selectedRequestId = request.id;
-      syncLegacyIntentFields(state);
+      if (existing) {
+        // 修改已发送的意向
+        existing.summary = state.summary;
+        existing.investmentType = state.investmentType || 'RBF YITO';
+        existing.amountBand = state.amountBand || '300-500';
+        existing.customMin = state.customMin || '';
+        existing.customMax = state.customMax || '';
+        existing.amountText = getIntentAmountText(state);
+        existing.concerns = (state.concerns || []).slice();
+        existing.note = state.note || '';
+        existing.updatedAt = new Date().toISOString();
+        state.selectedRequestId = existing.id;
+        syncLegacyIntentFields(state);
+        saveIntentState();
+        pushTimelineEvent('intent_updated', '修改结构化意向（' + existing.id + '）', getPublicTermsFromWorkbench());
+        renderIntentTab();
+        updateIntentUnreadDot();
+        showToast('success', '意向已更新', '融资方将看到最新修改内容');
+      } else {
+        // 首次发送意向
+        const request = {
+          id: 'IR_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          submittedAt: new Date().toISOString(),
+          response: 'pending',
+          summary: state.summary,
+          fromName: myName,
+          investmentType: state.investmentType || 'RBF YITO',
+          amountBand: state.amountBand || '300-500',
+          customMin: state.customMin || '',
+          customMax: state.customMax || '',
+          amountText: getIntentAmountText(state),
+          concerns: (state.concerns || []).slice(),
+          note: state.note || ''
+        };
+        state.requests.unshift(request);
+        state.selectedRequestId = request.id;
+        syncLegacyIntentFields(state);
 
-      currentDeal.status = 'interested';
-      const original = allDeals.find((d) => d.id === currentDeal.id);
-      if (original) original.status = 'interested';
-      localStorage.setItem('ec_allDeals', JSON.stringify(allDeals));
+        currentDeal.status = 'interested';
+        const original = allDeals.find((d) => d.id === currentDeal.id);
+        if (original) original.status = 'interested';
+        localStorage.setItem('ec_allDeals', JSON.stringify(allDeals));
 
-      saveIntentState();
-      pushTimelineEvent('intent_submitted', '提交结构化意向（' + request.id + '）', getPublicTermsFromWorkbench());
-      renderIntentRequestList(state);
-      renderIntentPerspective(state);
-      renderIntentSummaryAndResponse(state);
-      showToast('success', '意向已发送', '融资方将收到结构化意向摘要');
+        saveIntentState();
+        pushTimelineEvent('intent_submitted', '提交结构化意向（' + request.id + '）', getPublicTermsFromWorkbench());
+        renderIntentTab();
+        updateIntentUnreadDot();
+        showToast('success', '意向已发送', '融资方将收到结构化意向摘要');
+      }
     }
 
     function handleIntentDecision(status) {

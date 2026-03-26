@@ -15,6 +15,8 @@
     let timelineByDeal = {}; // 时间线事件（按项目存储）
     let contractPayloadByDeal = {}; // 流向合约通的公共参数快照
     let obStep = 0;
+    let expandedIntentCards = new Set();
+    let intentReadByDeal = {}; // 融资方已读时间戳 { dealId: { requestId: timestamp } }
 
     const INDUSTRY_COMPARABLES = {
       餐饮: {

@@ -30,6 +30,8 @@
       if (savedWorkbench) { try { workbenchByDeal = JSON.parse(savedWorkbench); } catch(e) {} }
       const savedIntent = localStorage.getItem('ec_intentByDeal');
       if (savedIntent) { try { intentByDeal = JSON.parse(savedIntent); } catch(e) {} }
+      const savedIntentRead = localStorage.getItem('ec_intentReadByDeal');
+      if (savedIntentRead) { try { intentReadByDeal = JSON.parse(savedIntentRead); } catch(e) {} }
       const savedNegotiation = localStorage.getItem('ec_negotiationByDeal');
       if (savedNegotiation) { try { negotiationByDeal = JSON.parse(savedNegotiation); } catch(e) {} }
       const savedTimeline = localStorage.getItem('ec_timelineByDeal');
