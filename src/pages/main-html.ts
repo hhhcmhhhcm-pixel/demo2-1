@@ -783,6 +783,16 @@ export const MAIN_HTML = `
                 <p class="text-xs text-gray-400">暂无证据锚点</p>
               </div>
             </div>
+            <div class="border border-gray-100 rounded-lg p-3 bg-gray-50/50">
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-xs font-semibold text-gray-600">行动项</label>
+                <button id="memoActionAddBtn" onclick="addMemoActionItem()" class="px-2 py-1 text-[11px] font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-white">新增行动项</button>
+              </div>
+              <p class="text-[11px] text-gray-400 mb-2">用于记录后续执行任务，支持负责人、截止日期与状态跟踪。</p>
+              <div id="memoActionList" class="space-y-2">
+                <p class="text-xs text-gray-400">暂无行动项</p>
+              </div>
+            </div>
           </div>
           <div class="grid grid-cols-3 gap-2 mt-3">
             <button id="memoBtnSaveDraft" onclick="saveMemoDraft()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">保存草稿</button>
