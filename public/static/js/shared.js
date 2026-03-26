@@ -165,8 +165,9 @@
       } else if (currentUser && typeof renderDeals === 'function') {
         renderDeals();
       }
-      // 视角切换后，若当前在项目会话页且有选中项目，重新渲染做功课内容
-      if (changed && currentDeal && typeof openDetail === 'function') {
+      // 仅在项目会话页内切换视角时，才重渲染做功课内容
+      var isProjectSessionActive = document.getElementById('pageProjectSession')?.classList.contains('active');
+      if (changed && isProjectSessionActive && currentDeal && typeof openDetail === 'function') {
         openDetail(currentDeal.id);
       }
       if (options.animate !== false && changed) playPerspectiveFlip();
