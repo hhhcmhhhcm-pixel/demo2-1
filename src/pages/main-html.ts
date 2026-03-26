@@ -754,22 +754,6 @@ export const MAIN_HTML = `
               <textarea id="memoAgreedContent" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="记录双方已达成的一致内容"></textarea>
             </div>
             <div>
-              <label class="block text-xs text-gray-500 mb-1">边界条件</label>
-              <textarea id="memoBoundary" rows="2" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：仅适用于首批门店，超出需重新确认"></textarea>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs text-gray-500 mb-1">生效日期</label>
-                <input id="memoEffectiveDate" type="date" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
-              </div>
-              <div>
-                <label class="block text-xs text-gray-500 mb-1">关联方案</label>
-                <select id="memoRelatedProposalId" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
-                  <option value="">未关联方案</option>
-                </select>
-              </div>
-            </div>
-            <div>
               <label class="block text-xs text-gray-500 mb-1">摘要正文（可选）</label>
               <textarea id="memoSummaryBody" rows="2" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="补充摘要或对外确认口径"></textarea>
             </div>
@@ -781,16 +765,6 @@ export const MAIN_HTML = `
               <p class="text-[11px] text-gray-400 mb-2">支持截图、语音转写、文件等证据锚点，便于后续回溯共识来源。</p>
               <div id="memoEvidenceList" class="space-y-2">
                 <p class="text-xs text-gray-400">暂无证据锚点</p>
-              </div>
-            </div>
-            <div class="border border-gray-100 rounded-lg p-3 bg-gray-50/50">
-              <div class="flex items-center justify-between mb-2">
-                <label class="block text-xs font-semibold text-gray-600">行动项</label>
-                <button id="memoActionAddBtn" onclick="addMemoActionItem()" class="px-2 py-1 text-[11px] font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-white">新增行动项</button>
-              </div>
-              <p class="text-[11px] text-gray-400 mb-2">用于记录后续执行任务，支持负责人、截止日期与状态跟踪。</p>
-              <div id="memoActionList" class="space-y-2">
-                <p class="text-xs text-gray-400">暂无行动项</p>
               </div>
             </div>
           </div>
@@ -805,7 +779,7 @@ export const MAIN_HTML = `
           <div id="memoFinancerActions" class="hidden mt-3 space-y-2">
             <div>
               <label class="block text-xs text-gray-500 mb-1">拒绝原因（拒绝时必填）</label>
-              <input id="memoRejectReason" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：边界条件不清晰，需要补充后再确认">
+              <input id="memoRejectReason" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：达成内容描述不清晰，需要补充后再确认">
             </div>
             <div class="grid grid-cols-2 gap-2">
               <button id="memoBtnConfirm" onclick="confirmSelectedMemo()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600">确认</button>
@@ -825,7 +799,7 @@ export const MAIN_HTML = `
                 <option value="rejected">已拒绝</option>
                 <option value="revised">已修订</option>
               </select>
-              <input id="memoSearchInput" type="text" class="px-2 py-1 border border-gray-200 rounded text-xs w-44" placeholder="搜索议题/方案/负责人" oninput="renderMemoTab()">
+              <input id="memoSearchInput" type="text" class="px-2 py-1 border border-gray-200 rounded text-xs w-44" placeholder="搜索议题/摘要内容" oninput="renderMemoTab()">
             </div>
           </div>
           <p id="memoFilterMeta" class="text-[11px] text-gray-400 mb-2">默认按最近更新时间降序</p>

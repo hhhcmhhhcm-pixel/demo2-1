@@ -54,7 +54,7 @@
       negotiationByDeal[dealId] = {
         proposals: [],
         memos: [],
-        memoEditor: { selectedMemoId: '', evidenceDraft: [], actionDraft: [] },
+        memoEditor: { selectedMemoId: '', evidenceDraft: [] },
         invite: null
       };
       migrateMemoStateIfNeeded(negotiationByDeal[dealId]);
@@ -68,7 +68,6 @@
         state.memoEditor = {
           selectedMemoId: '',
           evidenceDraft: [],
-          actionDraft: [],
           diffVersionA: '',
           diffVersionB: '',
           wechatGeneratedFromVersion: '',
@@ -80,9 +79,6 @@
       }
       if (!Array.isArray(state.memoEditor.evidenceDraft)) {
         state.memoEditor.evidenceDraft = [];
-      }
-      if (!Array.isArray(state.memoEditor.actionDraft)) {
-        state.memoEditor.actionDraft = [];
       }
       if (typeof state.memoEditor.diffVersionA !== 'string') {
         state.memoEditor.diffVersionA = '';
@@ -113,7 +109,6 @@
             return {
               ...v,
               evidenceAnchors: normalizeMemoEvidenceAnchors(v.evidenceAnchors),
-              actionItems: normalizeMemoActionItems(v.actionItems),
               confirmMeta: normalizeMemoConfirmMeta(v.confirmMeta, fallbackVersionStatus, v.author || '我方', v.updatedAt || v.createdAt || now)
             };
           });
@@ -151,12 +146,8 @@
             role: currentPerspective || 'investor',
             topic: '历史纪要',
             agreedContent: legacyContent,
-            boundary: '',
-            effectiveDate: '',
-            relatedProposalId: '',
             summaryBody: legacyContent,
             evidenceAnchors: [],
-            actionItems: [],
             confirmMeta: legacyConfirmMeta,
             rejectMeta: null
           }]
@@ -175,19 +166,6 @@
           sourceAt: src.sourceAt || '',
           note: src.note || '',
           attachmentName: src.attachmentName || ''
-        };
-      });
-    }
-
-    function normalizeMemoActionItems(items) {
-      if (!Array.isArray(items)) return [];
-      return items.map(function(item) {
-        var src = item || {};
-        return {
-          title: src.title || '',
-          owner: src.owner || '',
-          dueDate: src.dueDate || '',
-          status: (src.status === 'doing' || src.status === 'done') ? src.status : 'todo'
         };
       });
     }
@@ -268,23 +246,13 @@
       if (!memoVersion) return '';
       var topic = memoVersion.topic || '未命名议题';
       var agreed = memoVersion.agreedContent || '无';
-      var effective = memoVersion.effectiveDate || '待确认';
-      var actions = normalizeMemoActionItems(memoVersion.actionItems);
-      var actionsText = actions.length
-        ? actions.map(function(item, idx) {
-            var statusText = item.status === 'done' ? '已完成' : item.status === 'doing' ? '进行中' : '待办';
-            var due = item.dueDate ? ('，截止：' + item.dueDate) : '';
-            return (idx + 1) + '. ' + (item.title || '未命名事项') + '（负责人：' + (item.owner || '--') + due + '，状态：' + statusText + '）';
-          }).join('\n')
-        : '无';
+      var summary = memoVersion.summaryBody || '无';
 
       return [
         '【沟通备忘录确认】',
         '议题：' + topic,
         '达成内容：' + agreed,
-        '生效日期：' + effective,
-        '行动项：',
-        actionsText,
+        '摘要：' + summary,
         '',
         '如以上内容无误，请直接回复“确认”。若需调整，请回复具体修改点。'
       ].join('\n');
@@ -304,15 +272,11 @@
     function memoContainsKeyword(memo, keyword) {
       if (!keyword) return true;
       var currentVersion = getMemoCurrentVersion(memo);
-      var actions = normalizeMemoActionItems(currentVersion && currentVersion.actionItems);
-      var actionOwners = actions.map(function(item) { return item.owner || ''; }).join(' ');
       var searchText = [
         memo.id,
         currentVersion && currentVersion.topic,
         currentVersion && currentVersion.summaryBody,
-        currentVersion && currentVersion.agreedContent,
-        currentVersion && currentVersion.relatedProposalId,
-        actionOwners
+        currentVersion && currentVersion.agreedContent
       ].filter(Boolean).join(' ').toLowerCase();
       return searchText.includes(keyword);
     }
@@ -348,34 +312,14 @@
       meta.textContent = '共 ' + result.allCount + ' 条，当前显示 ' + result.filteredCount + ' 条 · 状态：' + statusLabel + ' · ' + keywordLabel + ' · 默认按最近更新时间降序';
     }
 
-    function renderMemoProposalOptions(state) {
-      var select = document.getElementById('memoRelatedProposalId');
-      if (!select || !state) return;
-      var current = select.value || '';
-      var proposals = state.proposals || [];
-      var html = '<option value="">未关联方案</option>';
-      html += proposals.map(function(p) {
-        var t = p.publicTerms || {};
-        var preview = Number.isFinite(t.amountWan) ? (Number(t.amountWan).toFixed(1) + '万') : '--';
-        return '<option value="' + p.id + '">' + p.id + ' · ' + preview + '</option>';
-      }).join('');
-      select.innerHTML = html;
-      select.value = current;
-    }
-
     function getMemoFormData() {
       syncMemoEvidenceDraftFromDom();
-      syncMemoActionDraftFromDom();
       var state = ensureNegotiationState();
       return {
         topic: (document.getElementById('memoTopic')?.value || '').trim(),
         agreedContent: (document.getElementById('memoAgreedContent')?.value || '').trim(),
-        boundary: (document.getElementById('memoBoundary')?.value || '').trim(),
-        effectiveDate: (document.getElementById('memoEffectiveDate')?.value || '').trim(),
-        relatedProposalId: (document.getElementById('memoRelatedProposalId')?.value || '').trim(),
         summaryBody: (document.getElementById('memoSummaryBody')?.value || '').trim(),
-        evidenceAnchors: normalizeMemoEvidenceAnchors(state?.memoEditor?.evidenceDraft || []),
-        actionItems: normalizeMemoActionItems(state?.memoEditor?.actionDraft || [])
+        evidenceAnchors: normalizeMemoEvidenceAnchors(state?.memoEditor?.evidenceDraft || [])
       };
     }
 
@@ -383,24 +327,16 @@
       var source = data || {};
       var topic = document.getElementById('memoTopic');
       var agreedContent = document.getElementById('memoAgreedContent');
-      var boundary = document.getElementById('memoBoundary');
-      var effectiveDate = document.getElementById('memoEffectiveDate');
-      var relatedProposalId = document.getElementById('memoRelatedProposalId');
       var summaryBody = document.getElementById('memoSummaryBody');
       if (topic) topic.value = source.topic || '';
       if (agreedContent) agreedContent.value = source.agreedContent || '';
-      if (boundary) boundary.value = source.boundary || '';
-      if (effectiveDate) effectiveDate.value = source.effectiveDate || '';
-      if (relatedProposalId) relatedProposalId.value = source.relatedProposalId || '';
       if (summaryBody) summaryBody.value = source.summaryBody || '';
       var state = ensureNegotiationState();
       if (state) {
         ensureMemoEditorState(state);
         state.memoEditor.evidenceDraft = normalizeMemoEvidenceAnchors(source.evidenceAnchors);
-        state.memoEditor.actionDraft = normalizeMemoActionItems(source.actionItems);
       }
       renderMemoEvidenceEditor();
-      renderMemoActionEditor();
     }
 
     function syncMemoEvidenceDraftFromDom() {
@@ -505,111 +441,6 @@
       state.memoEditor.evidenceDraft[index][field] = value;
     }
 
-    function syncMemoActionDraftFromDom() {
-      var state = ensureNegotiationState();
-      if (!state) return;
-      ensureMemoEditorState(state);
-      var rows = document.querySelectorAll('.memo-action-row');
-      if (!rows.length) return;
-      var next = [];
-      rows.forEach(function(row) {
-        var title = row.querySelector('[data-field="title"]');
-        var owner = row.querySelector('[data-field="owner"]');
-        var dueDate = row.querySelector('[data-field="dueDate"]');
-        var status = row.querySelector('[data-field="status"]');
-        next.push({
-          title: (title && title.value) || '',
-          owner: (owner && owner.value) || '',
-          dueDate: (dueDate && dueDate.value) || '',
-          status: (status && status.value) || 'todo'
-        });
-      });
-      state.memoEditor.actionDraft = normalizeMemoActionItems(next);
-    }
-
-    function renderMemoActionEditor() {
-      var state = ensureNegotiationState();
-      if (!state) return;
-      ensureMemoEditorState(state);
-      var list = document.getElementById('memoActionList');
-      if (!list) return;
-      var items = normalizeMemoActionItems(state.memoEditor.actionDraft);
-      state.memoEditor.actionDraft = items;
-      if (items.length === 0) {
-        list.innerHTML = '<p class="text-xs text-gray-400">暂无行动项</p>';
-        return;
-      }
-      list.innerHTML = items.map(function(item, idx) {
-        return '<div class="memo-action-row p-2 rounded-lg border border-gray-200 bg-white" data-index="' + idx + '">' +
-          '<div class="grid grid-cols-1 md:grid-cols-4 gap-2">' +
-            '<div class="md:col-span-2">' +
-              '<label class="block text-[10px] text-gray-500 mb-0.5">事项</label>' +
-              '<input class="memo-action-input w-full px-2 py-1.5 border border-gray-200 rounded text-xs" data-field="title" value="' + item.title + '" placeholder="例如：补充门店历史流水" oninput="updateMemoActionField(' + idx + ', &quot;title&quot;, this.value)">' +
-            '</div>' +
-            '<div>' +
-              '<label class="block text-[10px] text-gray-500 mb-0.5">负责人</label>' +
-              '<input class="memo-action-input w-full px-2 py-1.5 border border-gray-200 rounded text-xs" data-field="owner" value="' + item.owner + '" placeholder="投资方/融资方" oninput="updateMemoActionField(' + idx + ', &quot;owner&quot;, this.value)">' +
-            '</div>' +
-            '<div>' +
-              '<label class="block text-[10px] text-gray-500 mb-0.5">截止日期</label>' +
-              '<input type="date" class="memo-action-input w-full px-2 py-1.5 border border-gray-200 rounded text-xs" data-field="dueDate" value="' + item.dueDate + '" oninput="updateMemoActionField(' + idx + ', &quot;dueDate&quot;, this.value)">' +
-            '</div>' +
-          '</div>' +
-          '<div class="mt-2 flex items-center justify-between">' +
-            '<div>' +
-              '<label class="block text-[10px] text-gray-500 mb-0.5">状态</label>' +
-              '<select class="memo-action-input px-2 py-1.5 border border-gray-200 rounded text-xs bg-white" data-field="status" onchange="updateMemoActionField(' + idx + ', &quot;status&quot;, this.value)">' +
-                '<option value="todo" ' + (item.status === 'todo' ? 'selected' : '') + '>待办</option>' +
-                '<option value="doing" ' + (item.status === 'doing' ? 'selected' : '') + '>进行中</option>' +
-                '<option value="done" ' + (item.status === 'done' ? 'selected' : '') + '>已完成</option>' +
-              '</select>' +
-            '</div>' +
-            '<button class="memo-action-remove-btn px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-600 hover:bg-gray-50" onclick="removeMemoActionItem(' + idx + ')">删除</button>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-
-    function addMemoActionItem() {
-      var state = ensureNegotiationState();
-      if (!state) return;
-      ensureMemoEditorState(state);
-      state.memoEditor.actionDraft.push({
-        title: '',
-        owner: '',
-        dueDate: '',
-        status: 'todo'
-      });
-      renderMemoActionEditor();
-    }
-
-    function removeMemoActionItem(index) {
-      var state = ensureNegotiationState();
-      if (!state) return;
-      ensureMemoEditorState(state);
-      if (index < 0 || index >= state.memoEditor.actionDraft.length) return;
-      state.memoEditor.actionDraft.splice(index, 1);
-      renderMemoActionEditor();
-    }
-
-    function updateMemoActionField(index, field, value) {
-      var state = ensureNegotiationState();
-      if (!state) return;
-      ensureMemoEditorState(state);
-      if (!state.memoEditor.actionDraft[index]) return;
-      state.memoEditor.actionDraft[index][field] = value;
-    }
-
-    function formatMemoActionsForDisplay(actions) {
-      var items = normalizeMemoActionItems(actions);
-      if (items.length === 0) return '无';
-      return items.map(function(item, idx) {
-        var statusText = item.status === 'done' ? '已完成' : item.status === 'doing' ? '进行中' : '待办';
-        var dueText = item.dueDate ? ('截止' + item.dueDate) : '无截止日';
-        return (idx + 1) + '. ' + (item.title || '未命名事项') + ' / ' + (item.owner || '--') + ' / ' + dueText + ' / ' + statusText;
-      }).join('\n');
-    }
-
     function setMemoDiffDefaults(state, memo) {
       if (!state || !memo) return;
       ensureMemoEditorState(state);
@@ -658,9 +489,7 @@
 
       var fields = [
         { key: 'agreedContent', label: '达成内容', formatter: function(v) { return v || '无'; } },
-        { key: 'boundary', label: '边界条件', formatter: function(v) { return v || '无'; } },
-        { key: 'effectiveDate', label: '生效日期', formatter: function(v) { return v || '无'; } },
-        { key: 'actionItems', label: '行动项', formatter: function(v) { return formatMemoActionsForDisplay(v); } }
+        { key: 'summaryBody', label: '摘要正文', formatter: function(v) { return v || '无'; } }
       ];
 
       box.innerHTML = fields.map(function(field) {
@@ -886,9 +715,6 @@
       [
         'memoTopic',
         'memoAgreedContent',
-        'memoBoundary',
-        'memoEffectiveDate',
-        'memoRelatedProposalId',
         'memoSummaryBody'
       ].forEach(function(id) {
         var el = document.getElementById(id);
@@ -897,11 +723,6 @@
       var addBtn = document.getElementById('memoEvidenceAddBtn');
       if (addBtn) addBtn.disabled = !!disabled;
       document.querySelectorAll('.memo-evidence-input, .memo-evidence-remove-btn').forEach(function(el) {
-        el.disabled = !!disabled;
-      });
-      var actionAddBtn = document.getElementById('memoActionAddBtn');
-      if (actionAddBtn) actionAddBtn.disabled = !!disabled;
-      document.querySelectorAll('.memo-action-input, .memo-action-remove-btn').forEach(function(el) {
         el.disabled = !!disabled;
       });
     }
@@ -1254,7 +1075,6 @@
       var list = document.getElementById('memoHistoryList');
       if (!list) return;
       ensureMemoEditorState(state);
-      renderMemoProposalOptions(state);
       var allMemos = state.memos || [];
       if (allMemos.length === 0) {
         list.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无沟通纪要。</p>';
@@ -1291,20 +1111,11 @@
         var rejectReason = currentVersion && currentVersion.rejectMeta && currentVersion.rejectMeta.reason ? currentVersion.rejectMeta.reason : '';
         var evidences = normalizeMemoEvidenceAnchors(currentVersion && currentVersion.evidenceAnchors);
         var evidenceCount = evidences.length;
-        var actions = normalizeMemoActionItems(currentVersion && currentVersion.actionItems);
-        var actionCount = actions.length;
-        var actionDoneCount = actions.filter(function(a) { return a.status === 'done'; }).length;
         var evidenceDetails = evidenceCount > 0
           ? ('<details class="mt-1.5 text-[11px] text-gray-500" onclick="event.stopPropagation()"><summary class="cursor-pointer select-none">查看证据详情（' + evidenceCount + '）</summary><div class="mt-1 space-y-1">' + evidences.map(function(ev, i) {
               return '<div class="p-1.5 rounded bg-gray-50 border border-gray-100"><span class="font-medium">#' + (i + 1) + '</span> [' + ev.type + '] ' + (ev.attachmentName || '未命名') + ' · ' + (ev.sourceRole || '--') + (ev.sourceAt ? (' · ' + ev.sourceAt.replace('T', ' ')) : '') + (ev.note ? ('<br><span class="text-gray-400">' + ev.note + '</span>') : '') + '</div>';
             }).join('') + '</div></details>')
           : '<p class="text-[11px] text-gray-400 mt-1.5">证据锚点：0</p>';
-        var actionDetails = actionCount > 0
-          ? ('<details class="mt-1.5 text-[11px] text-gray-500" onclick="event.stopPropagation()"><summary class="cursor-pointer select-none">查看行动项（' + actionDoneCount + '/' + actionCount + ' 完成）</summary><div class="mt-1 space-y-1">' + actions.map(function(ac, i) {
-              var statusText = ac.status === 'done' ? '已完成' : ac.status === 'doing' ? '进行中' : '待办';
-              return '<div class="p-1.5 rounded bg-gray-50 border border-gray-100"><span class="font-medium">#' + (i + 1) + '</span> ' + (ac.title || '未命名事项') + ' · 负责人 ' + (ac.owner || '--') + (ac.dueDate ? (' · 截止 ' + ac.dueDate) : '') + ' · ' + statusText + '</div>';
-            }).join('') + '</div></details>')
-          : '<p class="text-[11px] text-gray-400 mt-1.5">行动项：0</p>';
         return '<div onclick="selectMemoForEdit(\'' + m.id + '\')" class="w-full text-left p-3 rounded-xl border transition-colors cursor-pointer ' + (selected ? 'border-indigo-300 bg-indigo-50' : 'border-indigo-100 bg-white hover:bg-indigo-50/40') + '">' +
           '<div class="flex items-center justify-between mb-1.5">' +
             '<div class="text-xs font-semibold text-indigo-700">纪要 · ' + m.id + ' · V' + m.currentVersion + '</div>' +
@@ -1314,10 +1125,9 @@
           '<p class="text-xs text-gray-600 leading-relaxed">' + (shortSummary || '无摘要') + '</p>' +
           (rejectReason ? '<p class="text-[11px] text-rose-600 mt-1">拒绝原因：' + rejectReason + '</p>' : '') +
           evidenceDetails +
-          actionDetails +
           '<div class="text-[10px] text-gray-400 mt-1.5 flex items-center justify-between">' +
             '<span>' + time + '</span>' +
-            '<span>' + ((currentVersion && currentVersion.relatedProposalId) ? ('关联方案：' + currentVersion.relatedProposalId) : '未关联方案') + ' · 证据' + evidenceCount + ' · 行动项' + actionDoneCount + '/' + actionCount + '</span>' +
+            '<span>证据锚点：' + evidenceCount + '</span>' +
           '</div>' +
         '</div>';
         }).join('');
@@ -1395,12 +1205,8 @@
         role: currentPerspective || 'investor',
         topic: payload.topic,
         agreedContent: payload.agreedContent,
-        boundary: payload.boundary,
-        effectiveDate: payload.effectiveDate,
-        relatedProposalId: payload.relatedProposalId,
         summaryBody: payload.summaryBody,
         evidenceAnchors: normalizeMemoEvidenceAnchors(payload.evidenceAnchors),
-        actionItems: normalizeMemoActionItems(payload.actionItems),
         confirmMeta: normalizeMemoConfirmMeta(null, targetStatus),
         rejectMeta: null
       };
@@ -1455,12 +1261,8 @@
         role: currentPerspective || 'investor',
         topic: baseVersion.topic || '',
         agreedContent: baseVersion.agreedContent || '',
-        boundary: baseVersion.boundary || '',
-        effectiveDate: baseVersion.effectiveDate || '',
-        relatedProposalId: baseVersion.relatedProposalId || '',
         summaryBody: baseVersion.summaryBody || '',
         evidenceAnchors: normalizeMemoEvidenceAnchors(baseVersion.evidenceAnchors),
-        actionItems: normalizeMemoActionItems(baseVersion.actionItems),
         revisedFromVersion: baseVersion.version,
         confirmMeta: normalizeMemoConfirmMeta(null, 'draft'),
         rejectMeta: null
