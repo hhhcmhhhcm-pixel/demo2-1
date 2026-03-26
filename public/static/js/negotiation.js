@@ -250,6 +250,53 @@
       return map[status] || { label: status || '未知', cls: 'bg-gray-100 text-gray-600' };
     }
 
+    function memoContainsKeyword(memo, keyword) {
+      if (!keyword) return true;
+      var currentVersion = getMemoCurrentVersion(memo);
+      var actions = normalizeMemoActionItems(currentVersion && currentVersion.actionItems);
+      var actionOwners = actions.map(function(item) { return item.owner || ''; }).join(' ');
+      var searchText = [
+        memo.id,
+        currentVersion && currentVersion.topic,
+        currentVersion && currentVersion.summaryBody,
+        currentVersion && currentVersion.agreedContent,
+        currentVersion && currentVersion.relatedProposalId,
+        actionOwners
+      ].filter(Boolean).join(' ').toLowerCase();
+      return searchText.includes(keyword);
+    }
+
+    function getMemoFilteredAndSorted(state) {
+      var allMemos = state.memos || [];
+      var statusFilter = (document.getElementById('memoFilterStatus')?.value || 'all').trim();
+      var keyword = (document.getElementById('memoSearchInput')?.value || '').trim().toLowerCase();
+      var filtered = allMemos.filter(function(memo) {
+        if (statusFilter !== 'all' && memo.status !== statusFilter) return false;
+        if (!memoContainsKeyword(memo, keyword)) return false;
+        return true;
+      });
+      filtered.sort(function(a, b) {
+        var aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        var bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+      return {
+        allCount: allMemos.length,
+        filteredCount: filtered.length,
+        statusFilter: statusFilter,
+        keyword: keyword,
+        items: filtered
+      };
+    }
+
+    function renderMemoFilterMeta(result) {
+      var meta = document.getElementById('memoFilterMeta');
+      if (!meta || !result) return;
+      var statusLabel = result.statusFilter === 'all' ? '全部状态' : (getMemoStatusMeta(result.statusFilter).label);
+      var keywordLabel = result.keyword ? ('关键词：' + result.keyword) : '关键词：无';
+      meta.textContent = '共 ' + result.allCount + ' 条，当前显示 ' + result.filteredCount + ' 条 · 状态：' + statusLabel + ' · ' + keywordLabel + ' · 默认按最近更新时间降序';
+    }
+
     function renderMemoProposalOptions(state) {
       var select = document.getElementById('memoRelatedProposalId');
       if (!select || !state) return;
@@ -1141,8 +1188,8 @@
       if (!list) return;
       ensureMemoEditorState(state);
       renderMemoProposalOptions(state);
-      var memos = state.memos || [];
-      if (memos.length === 0) {
+      var allMemos = state.memos || [];
+      if (allMemos.length === 0) {
         list.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无沟通纪要。</p>';
         state.memoEditor.selectedMemoId = '';
         state.memoEditor.wechatGeneratedFromVersion = '';
@@ -1152,10 +1199,18 @@
         renderMemoActionBar(state, null);
         renderMemoVersionHistory(state, null);
         renderMemoWeChatPanel(state, null);
+        renderMemoFilterMeta({ allCount: 0, filteredCount: 0, statusFilter: 'all', keyword: '' });
         saveNegotiationState();
         return;
       }
-      list.innerHTML = memos.map(function(m) {
+
+      var filteredResult = getMemoFilteredAndSorted(state);
+      renderMemoFilterMeta(filteredResult);
+      var memos = filteredResult.items;
+      if (memos.length === 0) {
+        list.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无符合筛选条件的备忘录，请调整状态或关键词。</p>';
+      } else {
+        list.innerHTML = memos.map(function(m) {
         var currentVersion = getMemoCurrentVersion(m);
         var statusMeta = getMemoStatusMeta(m.status);
         var time = (m.updatedAt || m.createdAt || (currentVersion && currentVersion.updatedAt) || '').slice(0, 16).replace('T', ' ');
@@ -1194,7 +1249,8 @@
             '<span>' + ((currentVersion && currentVersion.relatedProposalId) ? ('关联方案：' + currentVersion.relatedProposalId) : '未关联方案') + ' · 证据' + evidenceCount + ' · 行动项' + actionDoneCount + '/' + actionCount + '</span>' +
           '</div>' +
         '</div>';
-      }).join('');
+        }).join('');
+      }
 
       var selectedMemo = getSelectedMemo(state);
       if (!selectedMemo) {

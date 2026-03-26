@@ -814,7 +814,21 @@ export const MAIN_HTML = `
           </div>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 p-5">
-          <h3 class="text-sm font-bold text-gray-800 mb-3"><i class="fas fa-list mr-1.5 text-indigo-500"></i>历史纪要</h3>
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h3 class="text-sm font-bold text-gray-800"><i class="fas fa-list mr-1.5 text-indigo-500"></i>历史纪要</h3>
+            <div class="flex items-center gap-2">
+              <select id="memoFilterStatus" class="px-2 py-1 border border-gray-200 rounded text-xs bg-white" onchange="renderMemoTab()">
+                <option value="all">全部状态</option>
+                <option value="draft">草稿</option>
+                <option value="pending_confirmation">待确认</option>
+                <option value="confirmed">已确认</option>
+                <option value="rejected">已拒绝</option>
+                <option value="revised">已修订</option>
+              </select>
+              <input id="memoSearchInput" type="text" class="px-2 py-1 border border-gray-200 rounded text-xs w-44" placeholder="搜索议题/方案/负责人" oninput="renderMemoTab()">
+            </div>
+          </div>
+          <p id="memoFilterMeta" class="text-[11px] text-gray-400 mb-2">默认按最近更新时间降序</p>
           <div id="memoHistoryList" class="space-y-2 text-sm text-gray-600">暂无沟通纪要。</div>
           <div class="mt-4 pt-4 border-t border-gray-100">
             <h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-clock-rotate-left mr-1.5 text-indigo-500"></i>版本历史</h4>
