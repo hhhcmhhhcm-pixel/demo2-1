@@ -65,7 +65,7 @@
     function ensureMemoEditorState(state) {
       if (!state) return;
       if (!state.memoEditor || typeof state.memoEditor !== 'object') {
-        state.memoEditor = { selectedMemoId: '', evidenceDraft: [], actionDraft: [] };
+        state.memoEditor = { selectedMemoId: '', evidenceDraft: [], actionDraft: [], diffVersionA: '', diffVersionB: '' };
       }
       if (typeof state.memoEditor.selectedMemoId !== 'string') {
         state.memoEditor.selectedMemoId = '';
@@ -75,6 +75,12 @@
       }
       if (!Array.isArray(state.memoEditor.actionDraft)) {
         state.memoEditor.actionDraft = [];
+      }
+      if (typeof state.memoEditor.diffVersionA !== 'string') {
+        state.memoEditor.diffVersionA = '';
+      }
+      if (typeof state.memoEditor.diffVersionB !== 'string') {
+        state.memoEditor.diffVersionB = '';
       }
     }
 
@@ -170,6 +176,27 @@
       if (!memo || !Array.isArray(memo.versions) || memo.versions.length === 0) return null;
       var v = memo.versions.find(function(item) { return item.version === memo.currentVersion; });
       return v || memo.versions[memo.versions.length - 1];
+    }
+
+    function getMemoVersionByNo(memo, versionNo) {
+      if (!memo || !Array.isArray(memo.versions)) return null;
+      var no = Number(versionNo);
+      if (!Number.isFinite(no)) return null;
+      return memo.versions.find(function(v) { return v.version === no; }) || null;
+    }
+
+    function getMemoVersionsDesc(memo) {
+      if (!memo || !Array.isArray(memo.versions)) return [];
+      return memo.versions.slice().sort(function(a, b) { return (b.version || 0) - (a.version || 0); });
+    }
+
+    function escapeMemoText(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     function getMemoStatusMeta(status) {
@@ -433,6 +460,139 @@
       ensureMemoEditorState(state);
       if (!state.memoEditor.actionDraft[index]) return;
       state.memoEditor.actionDraft[index][field] = value;
+    }
+
+    function formatMemoActionsForDisplay(actions) {
+      var items = normalizeMemoActionItems(actions);
+      if (items.length === 0) return '无';
+      return items.map(function(item, idx) {
+        var statusText = item.status === 'done' ? '已完成' : item.status === 'doing' ? '进行中' : '待办';
+        var dueText = item.dueDate ? ('截止' + item.dueDate) : '无截止日';
+        return (idx + 1) + '. ' + (item.title || '未命名事项') + ' / ' + (item.owner || '--') + ' / ' + dueText + ' / ' + statusText;
+      }).join('\n');
+    }
+
+    function setMemoDiffDefaults(state, memo) {
+      if (!state || !memo) return;
+      ensureMemoEditorState(state);
+      var versions = getMemoVersionsDesc(memo);
+      if (!versions.length) {
+        state.memoEditor.diffVersionA = '';
+        state.memoEditor.diffVersionB = '';
+        return;
+      }
+      var validA = versions.some(function(v) { return String(v.version) === String(state.memoEditor.diffVersionA); });
+      var validB = versions.some(function(v) { return String(v.version) === String(state.memoEditor.diffVersionB); });
+      if (!validA) state.memoEditor.diffVersionA = String(versions[0].version);
+      if (!validB) state.memoEditor.diffVersionB = String(versions[Math.min(1, versions.length - 1)].version);
+      if (state.memoEditor.diffVersionA === state.memoEditor.diffVersionB && versions.length > 1) {
+        state.memoEditor.diffVersionB = String(versions[1].version);
+      }
+    }
+
+    function renderMemoDiffSelectors(state, memo) {
+      var aSel = document.getElementById('memoDiffVersionA');
+      var bSel = document.getElementById('memoDiffVersionB');
+      if (!aSel || !bSel) return;
+      if (!memo) {
+        aSel.innerHTML = '<option value="">版本A</option>';
+        bSel.innerHTML = '<option value="">版本B</option>';
+        return;
+      }
+      setMemoDiffDefaults(state, memo);
+      var versions = getMemoVersionsDesc(memo);
+      var options = versions.map(function(v) {
+        return '<option value="' + v.version + '">V' + v.version + '</option>';
+      }).join('');
+      aSel.innerHTML = options;
+      bSel.innerHTML = options;
+      aSel.value = state.memoEditor.diffVersionA;
+      bSel.value = state.memoEditor.diffVersionB;
+    }
+
+    function renderMemoDiff(versionA, versionB) {
+      var box = document.getElementById('memoDiffBox');
+      if (!box) return;
+      if (!versionA || !versionB) {
+        box.innerHTML = '<p class="text-sm text-gray-400">请选择两个版本进行对比。</p>';
+        return;
+      }
+
+      var fields = [
+        { key: 'agreedContent', label: '达成内容', formatter: function(v) { return v || '无'; } },
+        { key: 'boundary', label: '边界条件', formatter: function(v) { return v || '无'; } },
+        { key: 'effectiveDate', label: '生效日期', formatter: function(v) { return v || '无'; } },
+        { key: 'actionItems', label: '行动项', formatter: function(v) { return formatMemoActionsForDisplay(v); } }
+      ];
+
+      box.innerHTML = fields.map(function(field) {
+        var aRaw = versionA[field.key];
+        var bRaw = versionB[field.key];
+        var aVal = field.formatter(aRaw);
+        var bVal = field.formatter(bRaw);
+        var changed = aVal !== bVal;
+        return '<div class="p-2.5 rounded-lg border ' + (changed ? 'border-cyan-200 bg-cyan-50/50' : 'border-gray-100 bg-gray-50') + '">' +
+          '<div class="flex items-center justify-between mb-1">' +
+            '<span class="text-xs font-semibold text-gray-700">' + field.label + '</span>' +
+            '<span class="text-[10px] px-1.5 py-0.5 rounded ' + (changed ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-200 text-gray-600') + '">' + (changed ? '已修改' : '无变化') + '</span>' +
+          '</div>' +
+          '<div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">' +
+            '<div class="p-2 rounded bg-white border border-gray-100"><p class="text-gray-400 mb-0.5">版本A</p><pre class="whitespace-pre-wrap text-gray-700">' + escapeMemoText(aVal) + '</pre></div>' +
+            '<div class="p-2 rounded bg-white border border-gray-100"><p class="text-gray-400 mb-0.5">版本B</p><pre class="whitespace-pre-wrap text-gray-700">' + escapeMemoText(bVal) + '</pre></div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function renderMemoVersionHistory(state, memo) {
+      var history = document.getElementById('memoVersionHistory');
+      if (!history) return;
+      if (!memo) {
+        history.innerHTML = '<p class="text-sm text-gray-400">请选择一条备忘录查看版本历史。</p>';
+        renderMemoDiffSelectors(state, null);
+        renderMemoDiff(null, null);
+        return;
+      }
+
+      var versions = getMemoVersionsDesc(memo);
+      history.innerHTML = versions.map(function(v) {
+        var isCurrent = v.version === memo.currentVersion;
+        var vStatus = v.confirmMeta ? 'confirmed' : (v.rejectMeta ? 'rejected' : (isCurrent ? memo.status : 'history'));
+        var statusLabel = vStatus === 'confirmed' ? '已确认' : vStatus === 'rejected' ? '已拒绝' : vStatus === 'pending_confirmation' ? '待确认' : vStatus === 'draft' ? '草稿' : '历史版本';
+        var statusCls = vStatus === 'confirmed' ? 'bg-emerald-100 text-emerald-700'
+          : vStatus === 'rejected' ? 'bg-rose-100 text-rose-700'
+          : vStatus === 'pending_confirmation' ? 'bg-amber-100 text-amber-700'
+          : vStatus === 'draft' ? 'bg-gray-100 text-gray-600'
+          : 'bg-indigo-100 text-indigo-700';
+        var at = (v.updatedAt || v.createdAt || '').slice(0, 16).replace('T', ' ');
+        return '<div class="p-2.5 rounded-lg border border-gray-100 bg-gray-50">' +
+          '<div class="flex items-center justify-between">' +
+            '<div class="text-xs text-gray-700 font-semibold">V' + v.version + (isCurrent ? '（当前）' : '') + '</div>' +
+            '<span class="text-[10px] px-1.5 py-0.5 rounded ' + statusCls + '">' + statusLabel + '</span>' +
+          '</div>' +
+          '<p class="text-[11px] text-gray-500 mt-1">编辑人：' + (v.author || '--') + ' · 角色：' + (v.role || '--') + ' · 时间：' + at + '</p>' +
+          '<div class="mt-1.5 flex items-center gap-2">' +
+            '<button onclick="updateMemoDiffSelection(&quot;A&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本A</button>' +
+            '<button onclick="updateMemoDiffSelection(&quot;B&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本B</button>' +
+            '<button onclick="createMemoRevisionFromVersion(' + v.version + ')" class="px-2 py-1 text-[11px] rounded border border-cyan-200 text-cyan-700 hover:bg-cyan-50">基于此版本新建草稿</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      renderMemoDiffSelectors(state, memo);
+      var vA = getMemoVersionByNo(memo, state.memoEditor.diffVersionA);
+      var vB = getMemoVersionByNo(memo, state.memoEditor.diffVersionB);
+      renderMemoDiff(vA, vB);
+    }
+
+    function updateMemoDiffSelection(which, versionNo) {
+      var state = ensureNegotiationState();
+      if (!state) return;
+      ensureMemoEditorState(state);
+      if (which === 'A') state.memoEditor.diffVersionA = String(versionNo || '');
+      else state.memoEditor.diffVersionB = String(versionNo || '');
+      saveNegotiationState();
+      renderMemoTab();
     }
 
     function updateMemoEditorHint(text) {
@@ -860,6 +1020,7 @@
         setMemoFormData({});
         updateMemoEditorHint('当前为新建模式。必填：议题、达成内容。');
         renderMemoActionBar(state, null);
+        renderMemoVersionHistory(state, null);
         saveNegotiationState();
         return;
       }
@@ -909,6 +1070,7 @@
         setMemoFormData({});
         updateMemoEditorHint('当前为新建模式。必填：议题、达成内容。');
         renderMemoActionBar(state, null);
+        renderMemoVersionHistory(state, null);
         return;
       }
       var selectedVersion = getMemoCurrentVersion(selectedMemo);
@@ -917,6 +1079,7 @@
       var selectedMeta = getMemoStatusMeta(selectedMemo.status);
       updateMemoEditorHint('当前编辑：' + selectedMemo.id + ' · V' + selectedMemo.currentVersion + ' · ' + selectedMeta.label + '。');
       renderMemoActionBar(state, selectedMemo);
+      renderMemoVersionHistory(state, selectedMemo);
     }
 
     function validateMemoCoreFields(data) {
@@ -1018,6 +1181,11 @@
       }
       var currentVersion = getMemoCurrentVersion(memo);
       if (!currentVersion) return;
+      createMemoRevisionByBaseVersion(state, memo, currentVersion);
+    }
+
+    function createMemoRevisionByBaseVersion(state, memo, baseVersion) {
+      if (!state || !memo || !baseVersion) return;
       var now = new Date().toISOString();
       var nextVersionNo = (memo.currentVersion || 0) + 1;
       memo.currentVersion = nextVersionNo;
@@ -1029,23 +1197,46 @@
         updatedAt: now,
         author: (currentUser && (currentUser.displayName || currentUser.username)) || '我方',
         role: currentPerspective || 'investor',
-        topic: currentVersion.topic || '',
-        agreedContent: currentVersion.agreedContent || '',
-        boundary: currentVersion.boundary || '',
-        effectiveDate: currentVersion.effectiveDate || '',
-        relatedProposalId: currentVersion.relatedProposalId || '',
-        summaryBody: currentVersion.summaryBody || '',
-        evidenceAnchors: normalizeMemoEvidenceAnchors(currentVersion.evidenceAnchors),
-        actionItems: normalizeMemoActionItems(currentVersion.actionItems),
-        revisedFromVersion: currentVersion.version,
+        topic: baseVersion.topic || '',
+        agreedContent: baseVersion.agreedContent || '',
+        boundary: baseVersion.boundary || '',
+        effectiveDate: baseVersion.effectiveDate || '',
+        relatedProposalId: baseVersion.relatedProposalId || '',
+        summaryBody: baseVersion.summaryBody || '',
+        evidenceAnchors: normalizeMemoEvidenceAnchors(baseVersion.evidenceAnchors),
+        actionItems: normalizeMemoActionItems(baseVersion.actionItems),
+        revisedFromVersion: baseVersion.version,
         confirmMeta: null,
         rejectMeta: null
       });
       state.memoEditor.selectedMemoId = memo.id;
+      state.memoEditor.diffVersionA = String(nextVersionNo);
+      state.memoEditor.diffVersionB = String(baseVersion.version);
       saveNegotiationState();
-      pushTimelineEvent('memo_revised', '基于 ' + memo.id + ' V' + currentVersion.version + ' 生成修订稿 V' + nextVersionNo, getPublicTermsFromWorkbench());
+      pushTimelineEvent('memo_revised', '基于 ' + memo.id + ' V' + baseVersion.version + ' 生成修订稿 V' + nextVersionNo, getPublicTermsFromWorkbench());
       renderMemoTab();
       showToast('success', '修订稿已创建', memo.id + ' · V' + nextVersionNo + '（草稿）');
+    }
+
+    function createMemoRevisionFromVersion(versionNo) {
+      if (!currentDeal) return;
+      var state = ensureNegotiationState();
+      if (!state) return;
+      if (currentPerspective === 'financer') {
+        showToast('warning', '当前为融资方视角', '融资方不可创建修订稿');
+        return;
+      }
+      var memo = getSelectedMemo(state);
+      if (!memo) {
+        showToast('warning', '未选择备忘录', '请先选择一条备忘录');
+        return;
+      }
+      var baseVersion = getMemoVersionByNo(memo, versionNo);
+      if (!baseVersion) {
+        showToast('warning', '版本不存在', '请选择有效版本后重试');
+        return;
+      }
+      createMemoRevisionByBaseVersion(state, memo, baseVersion);
     }
 
     function confirmSelectedMemo() {
