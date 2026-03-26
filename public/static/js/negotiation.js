@@ -1586,6 +1586,15 @@
       return true;
     }
 
+    function buildMemoConfirmMetaForTargetStatus(targetStatus, now) {
+      var actor = (currentUser && (currentUser.displayName || currentUser.username)) || '我方';
+      if (targetStatus === 'pending_confirmation') {
+        var roleKey = getCurrentMemoRoleKey();
+        return normalizeMemoConfirmMeta({ role: roleKey, actor: actor, at: now }, targetStatus, actor, now);
+      }
+      return normalizeMemoConfirmMeta(null, targetStatus, actor, now);
+    }
+
     function upsertMemoFromForm(targetStatus) {
       if (!currentDeal) return null;
       var state = ensureNegotiationState();
@@ -1635,7 +1644,7 @@
           agreedContent: payload.agreedContent,
           summaryBody: payload.summaryBody,
           evidenceAnchors: normalizeMemoEvidenceAnchors(payload.evidenceAnchors),
-          confirmMeta: normalizeMemoConfirmMeta(null, targetStatus),
+          confirmMeta: buildMemoConfirmMetaForTargetStatus(targetStatus, now),
           rejectMeta: null
         };
         memo.versions.push(currentVersion);
@@ -1647,7 +1656,7 @@
         currentVersion.agreedContent = payload.agreedContent;
         currentVersion.summaryBody = payload.summaryBody;
         currentVersion.evidenceAnchors = normalizeMemoEvidenceAnchors(payload.evidenceAnchors);
-        currentVersion.confirmMeta = normalizeMemoConfirmMeta(null, targetStatus);
+        currentVersion.confirmMeta = buildMemoConfirmMetaForTargetStatus(targetStatus, now);
         currentVersion.rejectMeta = null;
       }
 
