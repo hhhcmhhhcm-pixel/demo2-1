@@ -149,6 +149,39 @@
         pdCell('APR', Number(t.aprPct || 0).toFixed(2) + '%') +
         pdCell('合作期限', Number(t.termMonths || 0).toFixed(0) + ' 月');
 
+      // 反提案对比
+      var diffSection = document.getElementById('pdCounterDiff');
+      var diffGrid = document.getElementById('pdCounterDiffGrid');
+      if (diffSection && diffGrid) {
+        if (p.status === 'countered' && p.counterTerms) {
+          diffSection.classList.remove('hidden');
+          var ct = p.counterTerms;
+          var counterByName = p.counterBy === 'financer' ? '融资方' : '投资方';
+          var fields = [
+            { label: '融资金额', origVal: Number(t.amountWan || 0), counterVal: Number(ct.amountWan || 0), unit: '万', decimals: 1 },
+            { label: '分成比例', origVal: Number(t.sharePct || 0), counterVal: Number(ct.sharePct || 0), unit: '%', decimals: 2 },
+            { label: 'APR', origVal: Number(t.aprPct || 0), counterVal: Number(ct.aprPct || 0), unit: '%', decimals: 2 },
+            { label: '合作期限', origVal: Number(t.termMonths || 0), counterVal: Number(ct.termMonths || 0), unit: '月', decimals: 0 }
+          ];
+          diffGrid.innerHTML = '<p class="text-[11px] text-gray-500 mb-2">反提案方：' + counterByName + ' · ' + (p.counterAt ? p.counterAt.slice(0, 16).replace('T', ' ') : '') + '</p>' +
+            '<div class="grid grid-cols-4 gap-2">' + fields.map(function(f) {
+              var changed = f.origVal !== f.counterVal;
+              var delta = f.counterVal - f.origVal;
+              var deltaStr = delta > 0 ? '+' + delta.toFixed(f.decimals) : delta.toFixed(f.decimals);
+              var borderCls = changed ? 'border-cyan-200 bg-cyan-50/50' : 'border-gray-100 bg-gray-50';
+              return '<div class="p-2 rounded-lg border ' + borderCls + '">' +
+                '<p class="text-[11px] text-gray-400">' + f.label + '</p>' +
+                '<p class="text-xs text-gray-400 line-through">' + f.origVal.toFixed(f.decimals) + ' ' + f.unit + '</p>' +
+                '<p class="font-semibold text-xs ' + (changed ? 'text-cyan-700' : 'text-gray-700') + '">' + f.counterVal.toFixed(f.decimals) + ' ' + f.unit +
+                (changed ? ' <span class="text-[10px] font-normal ' + (delta > 0 ? 'text-rose-500' : 'text-emerald-600') + '">(' + deltaStr + ')</span>' : '') +
+                '</p></div>';
+            }).join('') + '</div>';
+        } else {
+          diffSection.classList.add('hidden');
+          diffGrid.innerHTML = '';
+        }
+      }
+
       // 私有预测
       var priv = p.privateData || {};
       var srcMap = { system: '模型预估', borrower: '融资方预估', self: '自行填写' };
@@ -321,34 +354,47 @@
         return;
       }
 
-      list.innerHTML = state.proposals.map(function(p) {
+      // 检测是否已有任一方案达成条款
+      var hasAgreed = state.proposals.some(function(x) { return x.status === 'agreed'; });
+
+      var totalProposals = state.proposals.length;
+      list.innerHTML = state.proposals.map(function(p, idx) {
         var isFinancer = p.perspective === 'financer';
         var roleName = isFinancer ? '融资方' : '投资方';
+        var proposalLabel = '方案 #' + (totalProposals - idx);
         var actions = [];
+        var isSender = p.perspective === (currentPerspective || 'investor');
+        var isReceiver = !isSender;
+        // 当前方案非达成方案时，若已有达成方案则置灰
+        var locked = hasAgreed && p.status !== 'agreed';
+        var dis = locked ? ' disabled style="opacity:0.4;cursor:not-allowed;"' : '';
+
         if (p.status === 'draft' || p.status === 'pending') {
-          var isSender = p.perspective === (currentPerspective || 'investor');
-          actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'accept\')" class="px-2 py-1 text-[11px] rounded bg-emerald-600 text-white">接受</button>');
-          actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'reject\')" class="px-2 py-1 text-[11px] rounded bg-rose-600 text-white">拒绝</button>');
-          if (!isSender) {
-            actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'counter\')" class="px-2 py-1 text-[11px] rounded bg-cyan-600 text-white">反提案</button>');
+          if (isReceiver) {
+            actions.push('<button onclick="acceptAndConfirmTerms(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded bg-emerald-600 text-white"' + dis + '>接受并达成条款</button>');
+            actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'reject\')" class="px-2 py-1 text-[11px] rounded bg-rose-600 text-white"' + dis + '>拒绝</button>');
+            actions.push('<button onclick="respondNegotiation(\'' + p.id + '\',\'counter\')" class="px-2 py-1 text-[11px] rounded bg-cyan-600 text-white"' + dis + '>反提案</button>');
           }
           if (isSender) {
-            actions.push('<button onclick="withdrawNegotiationProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700">撤回</button>');
+            actions.push('<button onclick="withdrawNegotiationProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700"' + dis + '>撤回</button>');
           }
-        } else if (p.status === 'accepted') {
-          actions.push('<button onclick="confirmNegotiationTerms(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded bg-teal-600 text-white">确认条款达成</button>');
+        } else if (p.status === 'agreed') {
+          actions.push('<button onclick="revokeAgreedTerms(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded border border-rose-200 text-rose-600 hover:bg-rose-50">撤回条款达成</button>');
         } else if (p.status === 'countered' && p.counterTerms) {
+          // 反提案发起方只能撤回
           if (p.counterBy === (currentPerspective || 'investor')) {
-            actions.push('<button onclick="withdrawCounterProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700">撤回反提案</button>');
+            actions.push('<button onclick="withdrawCounterProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700"' + dis + '>撤回反提案</button>');
           }
-          if (p.perspective === (currentPerspective || 'investor')) {
-            actions.push('<button onclick="acceptCounterProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded bg-emerald-600 text-white">接受反提案</button>');
+          // 原方案方（被反提案方）可以接受或驳回
+          if (isSender) {
+            actions.push('<button onclick="acceptCounterProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded bg-emerald-600 text-white"' + dis + '>接受反提案并达成</button>');
+            actions.push('<button onclick="rejectCounterProposal(\'' + p.id + '\')" class="px-2 py-1 text-[11px] rounded bg-rose-600 text-white"' + dis + '>驳回反提案</button>');
           }
         }
 
         var counterByName = p.counterBy === 'financer' ? '融资方' : '投资方';
         return '<div class="p-3 rounded-xl border border-gray-100 bg-gray-50">' +
-          '<div class="flex items-center justify-between mb-1"><p class="text-xs font-semibold text-gray-700">' + roleName + ' · ' + p.id + '</p><span class="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-600">' + getProposalStatusText(p.status) + '</span></div>' +
+          '<div class="flex items-center justify-between mb-1"><p class="text-xs font-semibold text-gray-700">' + roleName + ' · ' + proposalLabel + '</p><span class="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-600">' + getProposalStatusText(p.status) + '</span></div>' +
           '<p class="text-xs text-gray-500 mb-1">' + formatTermsInline(p.publicTerms) + '</p>' +
           (p.counterTerms ? '<p class="text-xs text-cyan-700 mb-1">' + counterByName + '反提案：' + formatTermsInline(p.counterTerms) + '</p>' : '') +
           (actions.length ? '<div class="flex flex-wrap gap-1 mt-2">' + actions.join('') + '</div>' : '') +
@@ -383,6 +429,121 @@
       }).join('');
     }
 
+    // ---- 方案动态时间线 ----
+    function getNegTimelineIcon(type) {
+      var map = {
+        proposal_submitted: { icon: 'fa-plus-circle', color: '#0d9488' },
+        proposal_edited: { icon: 'fa-pen', color: '#0891b2' },
+        proposal_accepted: { icon: 'fa-check-circle', color: '#10b981' },
+        proposal_rejected: { icon: 'fa-times-circle', color: '#ef4444' },
+        proposal_countered: { icon: 'fa-reply', color: '#6366f1' },
+        proposal_withdrawn: { icon: 'fa-undo', color: '#6b7280' },
+        counter_withdrawn: { icon: 'fa-undo', color: '#6b7280' },
+        counter_accepted: { icon: 'fa-check-double', color: '#10b981' },
+        counter_rejected: { icon: 'fa-ban', color: '#ef4444' },
+        terms_confirmed: { icon: 'fa-lock', color: '#059669' },
+        terms_revoked: { icon: 'fa-lock-open', color: '#dc2626' },
+        timeline_reloaded: { icon: 'fa-rotate', color: '#8b5cf6' }
+      };
+      return map[type] || { icon: 'fa-circle', color: '#9ca3af' };
+    }
+
+    // 将摘要中的 P_xxx ID 替换为"方案 #N"
+    function replaceProposalIds(summary, proposals) {
+      if (!summary || !proposals || !proposals.length) return summary || '--';
+      var result = summary;
+      proposals.forEach(function(p, idx) {
+        if (result.indexOf(p.id) !== -1) {
+          result = result.replace(new RegExp(p.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '方案 #' + (proposals.length - idx));
+        }
+      });
+      return result;
+    }
+
+    function renderNegotiationTimeline() {
+      if (!currentDeal) return;
+      var allEvents = getTimelineEventsForCurrentDeal();
+      // 只保留方案相关事件
+      var proposalEvents = allEvents.filter(function(e) {
+        return getTimelineTypeMeta(e.type).category === 'proposal';
+      });
+
+      // 筛选器：按方案ID过滤
+      var filterEl = document.getElementById('negTimelineFilter');
+      var filterVal = filterEl ? filterEl.value : 'all';
+
+      // 构建方案ID列表供下拉选择
+      var state = ensureNegotiationState();
+      var proposals = state ? state.proposals : [];
+      if (filterEl) {
+        var currentVal = filterEl.value;
+        var opts = '<option value="all">全部方案</option>';
+        proposals.forEach(function(p, idx) {
+          opts += '<option value="' + p.id + '">方案 #' + (proposals.length - idx) + '</option>';
+        });
+        filterEl.innerHTML = opts;
+        filterEl.value = currentVal;
+        // 如果之前的值不在新列表中，重置为all
+        if (filterEl.value !== currentVal) filterEl.value = 'all';
+        filterVal = filterEl.value;
+      }
+
+      // 按方案ID过滤
+      var filtered = proposalEvents;
+      if (filterVal !== 'all') {
+        filtered = proposalEvents.filter(function(e) {
+          return e.summary && e.summary.indexOf(filterVal) !== -1;
+        });
+      }
+
+      var countEl = document.getElementById('negTimelineCount');
+      if (countEl) countEl.textContent = filtered.length + ' 条';
+
+      var list = document.getElementById('negTimelineList');
+      if (!list) return;
+      if (filtered.length === 0) {
+        list.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无方案动态。</p>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(function(e, idx) {
+        var meta = getTimelineTypeMeta(e.type);
+        var iconMeta = getNegTimelineIcon(e.type);
+        var at = e.at ? e.at.slice(5, 16).replace('T', ' ') : '--';
+        var actor = e.actor || '我方';
+        var roleName = e.role === 'financer' ? '融资方' : '投资方';
+        var isLast = idx === filtered.length - 1;
+        var termsHtml = '';
+        if (e.publicTerms) {
+          var t = e.publicTerms;
+          termsHtml = '<div class="mt-1.5 flex flex-wrap gap-1.5">' +
+            '<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">' + Number(t.amountWan || 0).toFixed(1) + '万</span>' +
+            '<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">' + Number(t.sharePct || 0).toFixed(2) + '%</span>' +
+            '<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">APR ' + Number(t.aprPct || 0).toFixed(2) + '%</span>' +
+            '<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">' + Number(t.termMonths || 0).toFixed(0) + '月</span>' +
+          '</div>';
+        }
+
+        return '<div class="flex gap-3">' +
+          // 时间轴线 + 图标
+          '<div class="flex flex-col items-center flex-shrink-0" style="width:24px;">' +
+            '<div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style="background:' + iconMeta.color + '15;"><i class="fas ' + iconMeta.icon + '" style="font-size:10px;color:' + iconMeta.color + ';"></i></div>' +
+            (!isLast ? '<div class="w-px flex-1 bg-gray-200 my-0.5"></div>' : '') +
+          '</div>' +
+          // 内容
+          '<div class="pb-3 flex-1 min-w-0">' +
+            '<div class="flex items-center gap-2">' +
+              '<span class="text-xs font-semibold text-gray-800">' + meta.label + '</span>' +
+              '<span class="text-[10px] px-1.5 py-0.5 rounded ' + (e.role === 'financer' ? 'bg-amber-50 text-amber-600' : 'bg-teal-50 text-teal-600') + '">' + roleName + '</span>' +
+              '<span class="text-[10px] text-gray-400 ml-auto flex-shrink-0">' + at + '</span>' +
+            '</div>' +
+            '<p class="text-[11px] text-gray-500 mt-0.5">' + actor + '：' + replaceProposalIds(e.summary, proposals) + '</p>' +
+            termsHtml +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
     function renderNegotiationTab() {
       if (!currentDeal) return;
       var state = ensureNegotiationState();
@@ -412,6 +573,7 @@
 
       renderProposalGrid(state);
       renderNegotiationProposals(state);
+      renderNegotiationTimeline();
 
       var invite = document.getElementById('negInviteBox');
       if (invite) {
@@ -422,7 +584,25 @@
       var payloadBox = document.getElementById('negContractPayloadBox');
       if (payloadBox) {
         var payload = contractPayloadByDeal[currentDeal.id];
-        payloadBox.textContent = payload ? JSON.stringify(payload, null, 2) : '尚未达成条款，暂无输出。';
+        if (payload && payload.publicTerms) {
+          var pt = payload.publicTerms;
+          var confirmedTime = payload.confirmedAt ? payload.confirmedAt.slice(0, 16).replace('T', ' ') : '--';
+          payloadBox.innerHTML =
+            '<div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100">' +
+              '<div class="flex items-center gap-2 mb-3"><i class="fas fa-circle-check text-emerald-600"></i><span class="text-sm font-bold text-emerald-800">条款已达成</span><span class="text-[11px] text-emerald-600 ml-auto">' + confirmedTime + '</span></div>' +
+              '<div class="grid grid-cols-2 gap-2 mb-3">' +
+                '<div class="p-2.5 rounded-lg bg-white border border-emerald-100"><p class="text-[11px] text-gray-400">项目名称</p><p class="text-xs font-semibold text-gray-800">' + (payload.projectName || '--') + '</p></div>' +
+                '<div class="p-2.5 rounded-lg bg-white border border-emerald-100"><p class="text-[11px] text-gray-400">融资金额</p><p class="text-xs font-semibold text-gray-800">' + Number(pt.amountWan).toFixed(1) + ' 万</p></div>' +
+                '<div class="p-2.5 rounded-lg bg-white border border-emerald-100"><p class="text-[11px] text-gray-400">分成比例</p><p class="text-xs font-semibold text-gray-800">' + Number(pt.sharePct).toFixed(2) + '%</p></div>' +
+                '<div class="p-2.5 rounded-lg bg-white border border-emerald-100"><p class="text-[11px] text-gray-400">封顶 APR</p><p class="text-xs font-semibold text-gray-800">' + Number(pt.aprPct).toFixed(2) + '%</p></div>' +
+                '<div class="p-2.5 rounded-lg bg-white border border-emerald-100"><p class="text-[11px] text-gray-400">合作期限</p><p class="text-xs font-semibold text-gray-800">' + Number(pt.termMonths).toFixed(0) + ' 个月</p></div>' +
+                '<div class="p-2.5 rounded-lg bg-white border border-emerald-100"><p class="text-[11px] text-gray-400">来源方案</p><p class="text-xs font-semibold text-gray-800">' + replaceProposalIds(payload.sourceProposalId, state.proposals) + '</p></div>' +
+              '</div>' +
+              '<p class="text-[11px] text-emerald-600"><i class="fas fa-info-circle mr-1"></i>以上为双方确认的公共条款，私有预测与派生指标不包含在内。</p>' +
+            '</div>';
+        } else {
+          payloadBox.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">尚未达成条款。</p>';
+        }
       }
     }
 
@@ -433,17 +613,45 @@
       return state.proposals.find(function(p) { return p.id === proposalId; }) || null;
     }
 
+    // 锁定条款的公共逻辑（接受 + 达成一步完成）
+    function lockTermsForProposal(proposal) {
+      proposal.status = 'agreed';
+      currentDeal.status = 'confirmed';
+      var original = allDeals.find(function(d) { return d.id === currentDeal.id; });
+      if (original) original.status = 'confirmed';
+      localStorage.setItem('ec_allDeals', JSON.stringify(allDeals));
+      contractPayloadByDeal[currentDeal.id] = {
+        dealId: currentDeal.id,
+        projectName: currentDeal.name,
+        sourceProposalId: proposal.id,
+        confirmedAt: new Date().toISOString(),
+        publicTerms: {
+          amountWan: Number(proposal.publicTerms.amountWan),
+          sharePct: Number(proposal.publicTerms.sharePct),
+          aprPct: Number(proposal.publicTerms.aprPct),
+          termMonths: Number(proposal.publicTerms.termMonths)
+        }
+      };
+      saveContractPayloadState();
+      saveNegotiationState();
+    }
+
+    // 一键接受并达成条款
+    function acceptAndConfirmTerms(proposalId) {
+      if (!currentDeal) return;
+      var proposal = findProposalById(proposalId);
+      if (!proposal || (proposal.status !== 'draft' && proposal.status !== 'pending')) return;
+      lockTermsForProposal(proposal);
+      pushTimelineEvent('terms_confirmed', '接受方案 ' + proposal.id + ' 并达成条款', proposal.publicTerms);
+      renderNegotiationTab();
+      showToast('success', '条款已达成', '项目状态已更新为已确认');
+    }
+
     function respondNegotiation(proposalId, action) {
       if (!currentDeal) return;
       var proposal = findProposalById(proposalId);
       if (!proposal || (proposal.status !== 'draft' && proposal.status !== 'pending')) return;
-      if (action === 'accept') {
-        proposal.status = 'accepted';
-        pushTimelineEvent('proposal_accepted', '接受方案 ' + proposal.id, proposal.publicTerms);
-        saveNegotiationState();
-        renderNegotiationTab();
-        showToast('success', '已接受', '可点击"确认条款达成"完成锁定');
-      } else if (action === 'reject') {
+      if (action === 'reject') {
         proposal.status = 'rejected';
         pushTimelineEvent('proposal_rejected', '拒绝方案 ' + proposal.id, proposal.publicTerms);
         saveNegotiationState();
@@ -632,49 +840,56 @@
       showToast('info', '反提案已撤回', '方案恢复为待响应状态');
     }
 
-    // 原方案方接受反提案 → 用反提案条款替换原方案，状态变为已接受
+    // 原方案方接受反提案 → 用反提案条款替换原方案，直接达成条款
     function acceptCounterProposal(proposalId) {
       if (!currentDeal) return;
       var proposal = findProposalById(proposalId);
       if (!proposal || proposal.status !== 'countered' || !proposal.counterTerms) return;
       proposal.publicTerms = proposal.counterTerms;
-      proposal.status = 'accepted';
       proposal.counterTerms = null;
-      saveNegotiationState();
-      pushTimelineEvent('counter_accepted', '接受方案 ' + proposal.id + ' 的反提案条款', proposal.publicTerms);
+      lockTermsForProposal(proposal);
+      pushTimelineEvent('counter_accepted', '接受方案 ' + proposal.id + ' 的反提案条款并达成', proposal.publicTerms);
       renderNegotiationTab();
-      showToast('success', '已接受反提案', '可点击"确认条款达成"完成锁定');
+      showToast('success', '条款已达成', '已接受反提案并锁定条款');
     }
 
-    function confirmNegotiationTerms(proposalId) {
+    // 原方案方驳回反提案 → 维持原提案，状态恢复为待响应
+    function rejectCounterProposal(proposalId) {
       if (!currentDeal) return;
       var proposal = findProposalById(proposalId);
-      if (!proposal || proposal.status !== 'accepted') {
-        showToast('warning', '无法确认', '仅已接受提案可确认达成');
+      if (!proposal || proposal.status !== 'countered' || !proposal.counterTerms) return;
+      var rejectedTerms = proposal.counterTerms;
+      proposal.status = 'pending';
+      proposal.counterTerms = null;
+      proposal.counterBy = null;
+      proposal.counterAt = null;
+      saveNegotiationState();
+      pushTimelineEvent('counter_rejected', '驳回方案 ' + proposal.id + ' 的反提案，维持原提案', proposal.publicTerms);
+      renderNegotiationTab();
+      showToast('info', '已驳回反提案', '原提案已恢复为待响应状态');
+    }
+
+    // 撤回已达成条款（协议未签署前可撤回）→ 恢复为待响应
+    function revokeAgreedTerms(proposalId) {
+      if (!currentDeal) return;
+      var proposal = findProposalById(proposalId);
+      if (!proposal || proposal.status !== 'agreed') {
+        showToast('warning', '无法撤回', '仅条款达成状态可撤回');
         return;
       }
-      proposal.status = 'agreed';
-      currentDeal.status = 'confirmed';
-      var original = allDeals.find(function(d) { return d.id === currentDeal.id; });
-      if (original) original.status = 'confirmed';
-      localStorage.setItem('ec_allDeals', JSON.stringify(allDeals));
-      contractPayloadByDeal[currentDeal.id] = {
-        dealId: currentDeal.id,
-        projectName: currentDeal.name,
-        sourceProposalId: proposal.id,
-        confirmedAt: new Date().toISOString(),
-        publicTerms: {
-          amountWan: Number(proposal.publicTerms.amountWan),
-          sharePct: Number(proposal.publicTerms.sharePct),
-          aprPct: Number(proposal.publicTerms.aprPct),
-          termMonths: Number(proposal.publicTerms.termMonths)
-        }
-      };
+      proposal.status = 'pending';
+      // 清除合约通输出
+      delete contractPayloadByDeal[currentDeal.id];
       saveContractPayloadState();
+      // 恢复项目状态
+      currentDeal.status = 'interested';
+      var original = allDeals.find(function(d) { return d.id === currentDeal.id; });
+      if (original) original.status = 'interested';
+      localStorage.setItem('ec_allDeals', JSON.stringify(allDeals));
       saveNegotiationState();
-      pushTimelineEvent('terms_confirmed', '方案 ' + proposal.id + ' 已达成并锁定公共条款', proposal.publicTerms);
+      pushTimelineEvent('terms_revoked', '撤回方案 ' + proposal.id + ' 的条款达成，恢复为待响应', proposal.publicTerms);
       renderNegotiationTab();
-      showToast('success', '条款已达成', '项目状态已更新为已确认');
+      showToast('info', '条款达成已撤回', '方案恢复为待响应状态，可重新接受或继续谈判');
     }
 
     function submitNegotiationMemo(status) {
@@ -720,6 +935,7 @@
     function getTimelineTypeMeta(type) {
       var map = {
         intent_submitted: { label: '提交意向', category: 'intent' },
+        intent_updated: { label: '修改意向', category: 'intent' },
         intent_accepted: { label: '意向接受', category: 'intent' },
         intent_rejected: { label: '意向拒绝', category: 'intent' },
         draft_saved: { label: '保存草稿', category: 'proposal' },
@@ -731,8 +947,10 @@
         proposal_withdrawn: { label: '撤回方案', category: 'proposal' },
         counter_withdrawn: { label: '撤回反提案', category: 'proposal' },
         counter_accepted: { label: '接受反提案', category: 'proposal' },
+        counter_rejected: { label: '驳回反提案', category: 'proposal' },
         timeline_reloaded: { label: '回填历史版本', category: 'proposal' },
         terms_confirmed: { label: '条款达成', category: 'proposal' },
+        terms_revoked: { label: '撤回条款', category: 'proposal' },
         memo_uploaded: { label: '上传纪要', category: 'memo' },
         invite_created: { label: '创建邀请', category: 'invite' }
       };

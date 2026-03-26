@@ -402,7 +402,7 @@ export const MAIN_HTML = `
           <i class="fas fa-sliders-h mr-1"></i>条款工作台
         </button>
         <button id="sessionTabBtn-intent" onclick="switchSessionTab('intent')" class="session-tab-btn px-3 py-2 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50">
-          <i class="fas fa-hand-point-up mr-1"></i>意向处理
+          <i class="fas fa-hand-point-up mr-1"></i><span id="intentTabLabel">意向处理</span><span id="intentUnreadDot" class="hidden ml-1.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 bg-red-500 rounded-full text-white text-[10px] font-bold leading-none">0</span>
         </button>
         <button id="sessionTabBtn-negotiation" onclick="switchSessionTab('negotiation')" class="session-tab-btn px-3 py-2 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50">
           <i class="fas fa-folder-open mr-1"></i>方案管理
@@ -614,14 +614,24 @@ export const MAIN_HTML = `
 
     <!-- Tab: 表达意向 -->
     <div id="sessionTab-intent" class="hidden flex-1 overflow-y-auto p-5">
-      <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- 融资方视角：可折叠意向卡片列表 -->
+      <div id="intentFinancerView" class="hidden max-w-4xl mx-auto space-y-3">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="text-base font-bold text-gray-900"><i class="fas fa-inbox mr-2 text-amber-600"></i>收到的意向请求</h3>
+          <span id="intentFinancerCount" class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">0 条</span>
+        </div>
+        <p class="text-[11px] text-gray-400 mb-2">点击展开查看投资方详情与意向内容，可直接在卡片内处理。</p>
+        <div id="intentFinancerCardList" class="space-y-3">暂无意向请求。</div>
+      </div>
+      <!-- 投资方视角：原有两栏布局 -->
+      <div id="intentInvestorView" class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div id="intentFormCard" class="bg-white rounded-2xl border border-gray-100 p-5">
           <h3 id="intentFormTitle" class="text-base font-bold text-gray-900 mb-4"><i class="fas fa-hand-point-up mr-2 text-teal-600"></i>结构化意向填写</h3>
           <div id="intentFormBody" class="space-y-3">
             <div>
               <label class="block text-xs text-gray-500 mb-1">投资类型</label>
               <select id="intentInvestmentType" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white" onchange="updateIntentAndPreview()">
-                <option value="RBF固定">RBF固定</option>
+                <option value="RBF YITO">RBF YITO</option>
               </select>
             </div>
             <div>
@@ -659,9 +669,8 @@ export const MAIN_HTML = `
               <label class="block text-xs text-gray-500 mb-1">备注（可选）</label>
               <textarea id="intentNote" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" oninput="updateIntentAndPreview()" placeholder="补充您的关注点或谈判偏好"></textarea>
             </div>
-            <div id="intentFormActions" class="grid grid-cols-2 gap-2">
-              <button onclick="generateIntentSummary()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">生成意向摘要</button>
-              <button onclick="submitIntent()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">确认并发送意向</button>
+            <div id="intentFormActions">
+              <button id="btnSubmitIntent" onclick="submitIntent()" class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">确认并发送意向</button>
             </div>
           </div>
         </div>
@@ -710,6 +719,19 @@ export const MAIN_HTML = `
             <h3 class="text-base font-bold text-gray-900 mb-3"><i class="fas fa-paper-plane mr-2 text-teal-600"></i>方案管理</h3>
             <div id="negProposalList" class="space-y-2 text-sm text-gray-600">暂无提案记录。</div>
           </div>
+
+          <div class="bg-white rounded-2xl border border-gray-100 p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-gray-900"><i class="fas fa-clock-rotate-left mr-2 text-indigo-600"></i>方案动态</h3>
+              <div class="flex items-center gap-2">
+                <select id="negTimelineFilter" onchange="renderNegotiationTimeline()" class="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white text-gray-600">
+                  <option value="all">全部方案</option>
+                </select>
+                <span id="negTimelineCount" class="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-500">0 条</span>
+              </div>
+            </div>
+            <div id="negTimelineList" class="space-y-0 text-sm text-gray-600">暂无方案动态。</div>
+          </div>
         </div>
 
         <div class="space-y-4">
@@ -729,9 +751,8 @@ export const MAIN_HTML = `
           </div>
 
           <div class="bg-white rounded-2xl border border-gray-100 p-5">
-            <h3 class="text-base font-bold text-gray-900 mb-3"><i class="fas fa-file-export mr-2 text-cyan-600"></i>合约通输出预览</h3>
-            <pre id="negContractPayloadBox" class="p-3 rounded-xl bg-gray-50 border border-gray-100 text-[11px] leading-5 text-gray-600 whitespace-pre-wrap">尚未达成条款，暂无输出。</pre>
-            <p class="text-[11px] text-gray-400 mt-2">约束：仅公共参数会流向合约通，私有预测与派生指标不会外传。</p>
+            <h3 class="text-base font-bold text-gray-900 mb-3"><i class="fas fa-file-circle-check mr-2 text-emerald-600"></i>已达成条款</h3>
+            <div id="negContractPayloadBox" class="text-sm text-gray-600">尚未达成条款。</div>
           </div>
         </div>
       </div>
@@ -771,6 +792,11 @@ export const MAIN_HTML = `
             <div>
               <h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-eye mr-1 text-gray-400"></i>公共条款</h4>
               <div id="pdPublic" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm"></div>
+            </div>
+            <!-- 反提案对比（仅有反提案时显示） -->
+            <div id="pdCounterDiff" class="hidden">
+              <h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-code-compare mr-1 text-cyan-500"></i>反提案条款对比</h4>
+              <div id="pdCounterDiffGrid" class="text-sm"></div>
             </div>
             <!-- 私有预测 -->
             <div>
