@@ -1898,10 +1898,6 @@
 
     function getRejectableSelectedMemo() {
       if (!currentDeal) return;
-      if (getCurrentMemoRoleKey() !== 'financer') {
-        showToast('warning', '当前角色不可拒绝', '仅融资方可执行拒绝操作');
-        return null;
-      }
       var state = ensureNegotiationState();
       if (!state) return null;
       var memo = getSelectedMemo(state);
@@ -1911,6 +1907,11 @@
       }
       if (memo.status !== 'pending_confirmation') {
         showToast('info', '当前状态不可拒绝', '仅待确认状态可执行拒绝');
+        return null;
+      }
+      var perms = getMemoActionPermissions(memo);
+      if (!perms.canReject) {
+        showToast('info', '当前状态不可拒绝', '当前版本已完成本方确认，无法继续拒绝');
         return null;
       }
       return { state: state, memo: memo };
@@ -1958,10 +1959,11 @@
       memo.status = 'rejected';
       memo.updatedAt = now;
       if (version) {
+        var roleKey = getCurrentMemoRoleKey();
         version.confirmMeta = normalizeMemoConfirmMeta(version.confirmMeta, 'rejected', (currentUser && (currentUser.displayName || currentUser.username)) || '我方', now);
         version.rejectMeta = {
           role: currentPerspective || 'financer',
-          actor: (currentUser && (currentUser.displayName || currentUser.username)) || '融资方',
+          actor: (currentUser && (currentUser.displayName || currentUser.username)) || (roleKey === 'financer' ? '融资方' : '投资方'),
           at: now,
           reason: reason
         };
