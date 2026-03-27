@@ -111,7 +111,7 @@
         perspective: 'financer',
         actor: (deal && deal.originator) || '发起方',
         sourceType: 'originate_default',
-        sourceLabel: '发起通默认方案（模拟）',
+        sourceLabel: '期望方案（模拟）',
         publicTerms: publicTerms,
         privateData: {
           revenueWan: +Number(revenueWan).toFixed(1),
@@ -1178,10 +1178,7 @@
         var badgeColor = isFinancer ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700';
         var roleName = isFinancer ? '融资方' : '投资方';
         var isOriginateDefault = p.sourceType === 'originate_default';
-        var proposalTitle = isOriginateDefault ? '默认方案（发起通）' : ('方案 #' + (proposals.length - idx));
-        var sourceBadge = isOriginateDefault
-          ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">发起通默认</span>'
-          : '';
+        var proposalTitle = isOriginateDefault ? '期望方案' : ('方案 #' + (proposals.length - idx));
         var statusText = getProposalStatusText(p.status);
         var statusCls = p.status === 'agreed' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600';
         var t = p.publicTerms || {};
@@ -1192,7 +1189,6 @@
             '<span class="text-xs font-bold text-gray-800">' + proposalTitle + '</span>' +
             '<div class="flex items-center gap-1">' +
               '<span class="text-[10px] px-1.5 py-0.5 rounded ' + badgeColor + '">' + roleName + '</span>' +
-              sourceBadge +
               '<span class="text-[10px] px-1.5 py-0.5 rounded ' + statusCls + '">' + statusText + '</span>' +
             '</div>' +
           '</div>' +
@@ -1229,7 +1225,7 @@
       var time = p.createdAt ? p.createdAt.slice(0, 16).replace('T', ' ') : '';
       setText('pdTitle', '方案详情 · ' + p.id);
       var metaEl = document.getElementById('pdMeta');
-      if (metaEl) metaEl.textContent = '由 ' + (p.actor || roleName) + ' 于 ' + time + ' 提交 · 状态：' + getProposalStatusText(p.status) + (p.sourceType === 'originate_default' ? ' · 来源：发起通默认方案（模拟）' : '');
+      if (metaEl) metaEl.textContent = '由 ' + (p.actor || roleName) + ' 于 ' + time + ' 提交 · 状态：' + getProposalStatusText(p.status) + (p.sourceType === 'originate_default' ? ' · 来源：期望方案（模拟）' : '');
 
       // 公共条款
       var t = p.publicTerms || {};
@@ -1453,7 +1449,7 @@
         var isFinancer = p.perspective === 'financer';
         var roleName = isFinancer ? '融资方' : '投资方';
         var proposalLabel = p.sourceType === 'originate_default'
-          ? '默认方案（发起通）'
+          ? '期望方案'
           : ('方案 #' + (totalProposals - idx));
         var actions = [];
         var isSender = p.perspective === (currentPerspective || 'investor');
