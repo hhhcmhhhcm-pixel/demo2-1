@@ -1434,7 +1434,7 @@
               '<input id="memoEvidenceFileInput" type="file" class="hidden" multiple onchange="handleMemoEvidenceFiles(this.files)">' +
               '<div id="memoEvidenceList" class="space-y-2">' +
                 '<p class="text-xs text-gray-400">暂无备忘录文件</p>' +
-              '</div>' +
+              '</summary>' +
             '</div>' +
           '</div>';
       }
