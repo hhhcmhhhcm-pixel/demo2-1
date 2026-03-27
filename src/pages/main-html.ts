@@ -764,7 +764,7 @@ export const MAIN_HTML = `
         <div class="bg-white rounded-2xl border border-gray-100 p-4">
           <div class="flex items-center justify-between gap-3">
             <h3 class="text-base font-bold text-gray-900"><i class="fas fa-file-lines mr-2 text-indigo-600"></i>沟通备忘录</h3>
-            <button id="memoBtnNewTop" onclick="clearMemoForm()" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">开始新记录</button>
+            <button id="memoBtnNewTop" onclick="clearMemoForm()" class="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-xl border border-indigo-500 bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-1 transition-all">开始新记录</button>
           </div>
           <p id="memoEditorHint" class="text-[11px] text-gray-400 mt-2">统一视图：双方看到同一信息，按权限显示可执行动作。</p>
           <div class="mt-3 flex items-center justify-between gap-2 flex-wrap">
