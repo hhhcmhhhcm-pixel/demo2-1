@@ -43,13 +43,111 @@
       saveTimelineState();
     }
 
+    function parsePercentValue(raw, fallback) {
+      var text = String(raw == null ? '' : raw).trim();
+      if (!text) return fallback;
+      var num = parseFloat(text.replace(/[^\d.]+/g, ''));
+      return Number.isFinite(num) && num > 0 ? num : fallback;
+    }
+
+    function parseMonthValue(raw, fallback) {
+      var text = String(raw == null ? '' : raw).trim();
+      if (!text) return fallback;
+      var num = parseInt(text.replace(/[^\d]+/g, ''), 10);
+      return Number.isFinite(num) && num > 0 ? num : fallback;
+    }
+
+    function computeProposalDerivedSnapshot(publicTerms, revenueWan) {
+      var amountWan = Number(publicTerms && publicTerms.amountWan) || 0;
+      var sharePct = Number(publicTerms && publicTerms.sharePct) || 0;
+      var aprPct = Number(publicTerms && publicTerms.aprPct) || 0;
+      var termMonths = Number(publicTerms && publicTerms.termMonths) || 0;
+      var revenue = Number(revenueWan) || 0;
+      var monthlyPaybackWan = revenue * sharePct / 100;
+      var touchMonths = monthlyPaybackWan > 0 ? (amountWan / monthlyPaybackWan) : 0;
+      var totalPaybackWan = monthlyPaybackWan * termMonths;
+      var actualAprPct = (amountWan > 0 && termMonths > 0)
+        ? ((totalPaybackWan - amountWan) / amountWan) * (12 / termMonths) * 100
+        : 0;
+      var recoveryMultiple = amountWan > 0 ? (totalPaybackWan / amountWan) : 0;
+      var suggestedAmountWan = monthlyPaybackWan * termMonths;
+      var suggestedSharePct = (revenue > 0 && termMonths > 0)
+        ? (amountWan / (revenue * termMonths)) * 100
+        : 0;
+      return {
+        monthlyPaybackWan: +monthlyPaybackWan.toFixed(2),
+        suggestedAmountWan: +suggestedAmountWan.toFixed(2),
+        suggestedSharePct: +suggestedSharePct.toFixed(2),
+        touchMonths: +touchMonths.toFixed(1),
+        totalPaybackWan: +totalPaybackWan.toFixed(2),
+        actualAprPct: +actualAprPct.toFixed(2),
+        recoveryMultiple: +recoveryMultiple.toFixed(2)
+      };
+    }
+
+    function buildOriginateDefaultProposal(deal) {
+      var now = new Date().toISOString();
+      var fallbackAmountWan = 520;
+      var fallbackSharePct = 10.8;
+      var fallbackAprPct = 13.2;
+      var fallbackTermMonths = 24;
+      var fallbackRevenueWan = 180;
+      var amountWan = (deal && Number.isFinite(Number(deal.amount)) && Number(deal.amount) > 0)
+        ? +(Number(deal.amount) / 10000).toFixed(1)
+        : fallbackAmountWan;
+      var sharePct = parsePercentValue(deal && deal.revenueShare, fallbackSharePct);
+      var termMonths = parseMonthValue(deal && deal.period, fallbackTermMonths);
+      var revenueWan = parseWanValue(deal && deal.monthlyRevenue);
+      if (!Number.isFinite(revenueWan) || revenueWan <= 0) revenueWan = fallbackRevenueWan;
+      var publicTerms = {
+        amountWan: amountWan,
+        sharePct: +sharePct.toFixed(2),
+        aprPct: fallbackAprPct,
+        termMonths: termMonths
+      };
+      return {
+        id: 'P_ORIGINATE_' + String((deal && deal.id) || 'default').replace(/[^\w-]/g, '_'),
+        createdAt: now,
+        perspective: 'financer',
+        actor: (deal && deal.originator) || '发起方',
+        sourceType: 'originate_default',
+        sourceLabel: '发起通默认方案（模拟）',
+        publicTerms: publicTerms,
+        privateData: {
+          revenueWan: +Number(revenueWan).toFixed(1),
+          source: 'originate_mock'
+        },
+        derivedData: computeProposalDerivedSnapshot(publicTerms, revenueWan),
+        status: 'pending',
+        messages: []
+      };
+    }
+
+    function ensureOriginateDefaultProposal(state) {
+      if (!state || !currentDeal) return false;
+      var changed = false;
+      if (!Array.isArray(state.proposals)) {
+        state.proposals = [];
+        changed = true;
+      }
+      var defaultId = 'P_ORIGINATE_' + String(currentDeal.id || 'default').replace(/[^\w-]/g, '_');
+      var exists = state.proposals.some(function(p) {
+        return p && (p.id === defaultId || p.sourceType === 'originate_default');
+      });
+      if (exists) return changed;
+      state.proposals.push(buildOriginateDefaultProposal(currentDeal));
+      return true;
+    }
+
     function ensureNegotiationState() {
       if (!currentDeal) return null;
       const dealId = currentDeal.id;
       if (negotiationByDeal[dealId]) {
-        migrateMemoStateIfNeeded(negotiationByDeal[dealId]);
-        ensureMemoEditorState(negotiationByDeal[dealId]);
-        return negotiationByDeal[dealId];
+        var existingState = negotiationByDeal[dealId];
+        migrateMemoStateIfNeeded(existingState);
+        ensureMemoEditorState(existingState);
+        if (ensureOriginateDefaultProposal(existingState)) saveNegotiationState();
+        return existingState;
       }
       negotiationByDeal[dealId] = {
         proposals: [],
@@ -58,6 +156,7 @@
         invite: null
       };
       migrateMemoStateIfNeeded(negotiationByDeal[dealId]);
+      ensureOriginateDefaultProposal(negotiationByDeal[dealId]);
       saveNegotiationState();
       return negotiationByDeal[dealId];
     }
@@ -1078,6 +1177,11 @@
         var bgColor = isFinancer ? 'bg-amber-50/50' : 'bg-teal-50/50';
         var badgeColor = isFinancer ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700';
         var roleName = isFinancer ? '融资方' : '投资方';
+        var isOriginateDefault = p.sourceType === 'originate_default';
+        var proposalTitle = isOriginateDefault ? '默认方案（发起通）' : ('方案 #' + (proposals.length - idx));
+        var sourceBadge = isOriginateDefault
+          ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">发起通默认</span>'
+          : '';
         var statusText = getProposalStatusText(p.status);
         var statusCls = p.status === 'agreed' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600';
         var t = p.publicTerms || {};
@@ -1085,9 +1189,10 @@
 
         return '<div class="p-3.5 rounded-xl border ' + borderColor + ' ' + bgColor + ' cursor-pointer hover:shadow-md transition-shadow" onclick="showProposalDetail(\'' + p.id + '\')">' +
           '<div class="flex items-center justify-between mb-2">' +
-            '<span class="text-xs font-bold text-gray-800">方案 #' + (proposals.length - idx) + '</span>' +
+            '<span class="text-xs font-bold text-gray-800">' + proposalTitle + '</span>' +
             '<div class="flex items-center gap-1">' +
               '<span class="text-[10px] px-1.5 py-0.5 rounded ' + badgeColor + '">' + roleName + '</span>' +
+              sourceBadge +
               '<span class="text-[10px] px-1.5 py-0.5 rounded ' + statusCls + '">' + statusText + '</span>' +
             '</div>' +
           '</div>' +
@@ -1124,7 +1229,7 @@
       var time = p.createdAt ? p.createdAt.slice(0, 16).replace('T', ' ') : '';
       setText('pdTitle', '方案详情 · ' + p.id);
       var metaEl = document.getElementById('pdMeta');
-      if (metaEl) metaEl.textContent = '由 ' + (p.actor || roleName) + ' 于 ' + time + ' 提交 · 状态：' + getProposalStatusText(p.status);
+      if (metaEl) metaEl.textContent = '由 ' + (p.actor || roleName) + ' 于 ' + time + ' 提交 · 状态：' + getProposalStatusText(p.status) + (p.sourceType === 'originate_default' ? ' · 来源：发起通默认方案（模拟）' : '');
 
       // 公共条款
       var t = p.publicTerms || {};
@@ -1347,7 +1452,9 @@
       list.innerHTML = state.proposals.map(function(p, idx) {
         var isFinancer = p.perspective === 'financer';
         var roleName = isFinancer ? '融资方' : '投资方';
-        var proposalLabel = '方案 #' + (totalProposals - idx);
+        var proposalLabel = p.sourceType === 'originate_default'
+          ? '默认方案（发起通）'
+          : ('方案 #' + (totalProposals - idx));
         var actions = [];
         var isSender = p.perspective === (currentPerspective || 'investor');
         var isReceiver = !isSender;
