@@ -1,4 +1,126 @@
     // ==================== Detail Page ====================
+
+    // ---- 已签约记录 mock 数据 ----
+    function getSignedContracts(deal) {
+      if (!deal) return [];
+      var base = deal.amount / 10000;
+      var share = parseInt(deal.revenueShare) || 10;
+      var dealPeriod = parseInt(deal.period) || 24;
+      // 合作期限 = 预估退出期限的4倍
+      var contracts = [];
+      // 第一笔：联营中，预估退出18个月
+      contracts.push({
+        investor: '投资方A',
+        amount: Math.round(base * 0.6) + '万',
+        share: Math.max(5, share - 2) + '%',
+        apr: '15%',
+        period: (18 * 4) + '个月',
+        signDate: '2025-06-12',
+        active: true
+      });
+      // 第二笔：已结束，预估退出14个月
+      contracts.push({
+        investor: '投资方B',
+        amount: Math.round(base * 0.4) + '万',
+        share: Math.max(5, share - 1) + '%',
+        apr: '18%',
+        period: (14 * 4) + '个月',
+        signDate: '2024-03-20',
+        active: false
+      });
+      // 评分高的项目多一笔联营中，预估退出20个月
+      if (parseFloat(deal.aiScore) >= 8.5) {
+        contracts.push({
+          investor: '投资方C',
+          amount: Math.round(base * 0.35) + '万',
+          share: share + '%',
+          apr: '16%',
+          period: (20 * 4) + '个月',
+          signDate: '2025-11-05',
+          active: true
+        });
+      }
+      return contracts;
+    }
+
+    function buildSignedContractsHtml(deal) {
+      var contracts = getSignedContracts(deal);
+      if (contracts.length === 0) return '';
+      var html = '<div class="space-y-3 mt-5">' +
+        '<h3 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-file-signature mr-1.5 text-indigo-500"></i>已签约记录</h3>';
+      for (var i = 0; i < contracts.length; i++) {
+        var c = contracts[i];
+        var statusBadge = c.active
+          ? '<span class="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-50 text-green-600">联营中</span>'
+          : '<span class="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-gray-100 text-gray-500">已结束</span>';
+        html +=
+          '<div class="p-3 bg-gray-50 rounded-xl border border-gray-100">' +
+            '<div class="flex items-center justify-between mb-2">' +
+              '<div><span class="text-xs font-semibold text-gray-700">' + c.investor + '</span><span class="ml-2 text-[10px] text-gray-400">' + c.signDate + ' 签约</span></div>' +
+              statusBadge +
+            '</div>' +
+            '<div class="grid grid-cols-2 gap-x-4 gap-y-1">' +
+              '<div class="flex justify-between"><span class="text-[11px] text-gray-500">融资金额</span><span class="text-[11px] font-semibold text-gray-700">¥' + c.amount + '</span></div>' +
+              '<div class="flex justify-between"><span class="text-[11px] text-gray-500">分成比例</span><span class="text-[11px] font-semibold text-gray-700">' + c.share + '</span></div>' +
+              '<div class="flex justify-between"><span class="text-[11px] text-gray-500">封顶APR</span><span class="text-[11px] font-semibold text-gray-700">' + c.apr + '</span></div>' +
+              '<div class="flex justify-between"><span class="text-[11px] text-gray-500">合作期限</span><span class="text-[11px] font-semibold text-gray-700">' + c.period + '</span></div>' +
+            '</div>' +
+          '</div>';
+      }
+      // 汇总字段
+      var totalAmount = 0, activeAmount = 0, activeShare = 0;
+      for (var j = 0; j < contracts.length; j++) {
+        var amt = parseInt(contracts[j].amount) || 0;
+        totalAmount += amt;
+        if (contracts[j].active) {
+          activeAmount += amt;
+          activeShare += parseInt(contracts[j].share) || 0;
+        }
+      }
+      html +=
+        '<div class="grid grid-cols-3 gap-2 mt-3">' +
+          '<div class="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-center"><p class="text-[10px] text-indigo-500">历史累计融资金额</p><p class="text-sm font-bold text-indigo-700 mt-0.5">¥' + totalAmount + '万</p></div>' +
+          '<div class="p-2.5 rounded-xl bg-green-50 border border-green-100 text-center"><p class="text-[10px] text-green-500">联营中项目累计融资金额</p><p class="text-sm font-bold text-green-700 mt-0.5">¥' + activeAmount + '万</p></div>' +
+          '<div class="p-2.5 rounded-xl bg-amber-50 border border-amber-100 text-center"><p class="text-[10px] text-amber-500">联营中项目总分成比例</p><p class="text-sm font-bold text-amber-700 mt-0.5">' + activeShare + '%</p></div>' +
+        '</div>';
+      html += '</div>';
+      return html;
+    }
+
+    function buildContactHtml(deal) {
+      if (!deal) return '';
+      var contactName = deal.contactName || '张经理';
+      var contactPhone = deal.contactPhone || '138-1234-5678';
+      var contactWechat = deal.contactWechat || 'zhangmgr_biz';
+
+      // 判断意向是否已被融资方接受
+      var intentState = intentByDeal[deal.id];
+      var accepted = intentState && hasAcceptedIntent(intentState);
+      var isFinancer = currentPerspective === 'financer';
+      // 融资方视角始终可见；投资方视角需意向被接受
+      var showReal = isFinancer || accepted;
+
+      var displayPhone = showReal ? contactPhone : contactPhone.replace(/\d/g, '*');
+      var displayWechat = showReal ? contactWechat : contactWechat.replace(/./g, '*');
+
+      var hint = '';
+      if (!showReal) {
+        hint = '<div class="mt-2 p-2.5 bg-amber-50 rounded-lg border border-amber-100">' +
+          '<p class="text-[11px] text-amber-700"><i class="fas fa-lock mr-1"></i>当前融资方未接受您的意向，请先发起意向申请</p>' +
+        '</div>';
+      }
+
+      return '<div class="space-y-3 mt-5">' +
+        '<h3 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-address-book mr-1.5 text-blue-500"></i>项目联系人</h3>' +
+        '<div class="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">' +
+          '<div class="flex items-center justify-between"><span class="text-xs font-medium text-gray-600">姓名</span><span class="text-xs font-bold text-gray-800">' + contactName + '</span></div>' +
+          '<div class="flex items-center justify-between"><span class="text-xs font-medium text-gray-600">联系电话</span><span class="text-xs font-bold text-gray-800">' + displayPhone + '</span></div>' +
+          '<div class="flex items-center justify-between"><span class="text-xs font-medium text-gray-600">微信号</span><span class="text-xs font-bold text-gray-800">' + displayWechat + '</span></div>' +
+        '</div>' +
+        hint +
+      '</div>';
+    }
+
     function openDetail(id) {
       currentDeal = dealsList.find(d => d.id === id) || allDeals.find(d => d.id === id);
       if (!currentDeal) return;
@@ -32,21 +154,23 @@
       document.getElementById('detailLeft').innerHTML =
         '<div class="mb-5">' +
           '<div class="p-3 bg-amber-50 rounded-xl border border-amber-100 mb-4 flex items-center gap-2"><i class="fas fa-paper-plane text-amber-500"></i><div><p class="text-xs font-bold text-amber-700">来自发起通</p><p class="text-xs text-amber-600">发起方：' + (currentDeal.originator || '未知') + '</p></div></div>' +
-          '<div class="flex items-center space-x-3 mb-4"><div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(93,196,179,0.15), rgba(73,168,154,0.15));"><i class="fas fa-briefcase text-2xl" style="color: #5DC4B3;"></i></div><div><h2 class="text-lg font-bold text-gray-900">' + currentDeal.name + '</h2><p class="text-sm text-gray-500">' + currentDeal.industry + ' · ' + currentDeal.location + '</p></div></div>' +
+          '<div class="flex items-center space-x-3 mb-4"><div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(93,196,179,0.15), rgba(73,168,154,0.15));"><i class="fas fa-briefcase text-2xl" style="color: #5DC4B3;"></i></div><div><h2 class="text-lg font-bold text-gray-900">' + currentDeal.name + '<span class="ml-2 text-xs font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600">AI ' + currentDeal.aiScore + '/10</span></h2><p class="text-sm text-gray-500">' + currentDeal.industry + ' · ' + currentDeal.location + '</p></div></div>' +
           '<p class="text-sm text-gray-600 leading-relaxed mb-4">' + currentDeal.description + '</p>' +
         '</div>' +
         '<div class="grid grid-cols-2 gap-3 mb-5">' +
-          '<div class="p-3 bg-teal-50 rounded-xl"><p class="text-xs text-gray-500 mb-1">投资金额</p><p class="text-lg font-bold text-teal-600">¥' + (currentDeal.amount/10000).toFixed(0) + '万</p></div>' +
-          '<div class="p-3 bg-amber-50 rounded-xl"><p class="text-xs text-gray-500 mb-1">分成比例</p><p class="text-lg font-bold text-amber-600">' + currentDeal.revenueShare + '</p></div>' +
-          '<div class="p-3 bg-cyan-50 rounded-xl"><p class="text-xs text-gray-500 mb-1">分成期限</p><p class="text-lg font-bold text-cyan-600">' + currentDeal.period + '</p></div>' +
-          '<div class="p-3 bg-emerald-50 rounded-xl"><p class="text-xs text-gray-500 mb-1">AI评分</p><p class="text-lg font-bold text-emerald-600">' + currentDeal.aiScore + '<span class="text-xs text-gray-400">/10</span></p></div>' +
+          '<div class="p-3 bg-teal-50 rounded-xl"><p class="text-xs text-gray-500 mb-1">期望融资金额</p><p class="text-lg font-bold text-teal-600">¥' + (currentDeal.amount/10000).toFixed(0) + '万</p></div>' +
+          '<div class="p-3 bg-amber-50 rounded-xl"><p class="text-xs text-gray-500 mb-1">期望分成比例</p><p class="text-lg font-bold text-amber-600">' + currentDeal.revenueShare + '</p></div>' +
+          '<div class="p-3 bg-emerald-50 rounded-xl"><p class="text-xs text-gray-500 mb-1">期望YITO封顶APR</p><p class="text-lg font-bold text-emerald-600">' + (currentDeal.yitoCapApr || '18%') + '</p></div>' +
+          '<div class="p-3 bg-cyan-50 rounded-xl"><p class="text-xs text-gray-500 mb-1">期望结束联营期限</p><p class="text-lg font-bold text-cyan-600">' + currentDeal.period + '</p></div>' +
         '</div>' +
         '<div class="space-y-3"><h3 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-store mr-1.5 text-amber-500"></i>经营数据（发起通提供）</h3>' +
           '<div class="p-3 bg-gray-50 rounded-xl border border-gray-100"><div class="flex items-center justify-between"><span class="text-xs font-medium text-gray-600">月均营收</span><span class="text-xs font-bold text-gray-800">' + (currentDeal.monthlyRevenue || '暂无') + '</span></div></div>' +
           '<div class="p-3 bg-gray-50 rounded-xl border border-gray-100"><div class="flex items-center justify-between"><span class="text-xs font-medium text-gray-600">员工人数</span><span class="text-xs font-bold text-gray-800">' + (currentDeal.employeeCount || '暂无') + '人</span></div></div>' +
           '<div class="p-3 bg-gray-50 rounded-xl border border-gray-100"><div class="flex items-center justify-between"><span class="text-xs font-medium text-gray-600">运营年限</span><span class="text-xs font-bold text-gray-800">' + (currentDeal.operatingYears || '暂无') + '年</span></div></div>' +
           '<div class="p-3 bg-gray-50 rounded-xl border border-gray-100"><div class="flex items-center justify-between"><span class="text-xs font-medium text-gray-600">风控评级</span><span class="text-xs font-bold text-emerald-600">' + (currentDeal.riskGrade || 'N/A') + '</span></div></div>' +
-        '</div>';
+        '</div>' +
+        buildSignedContractsHtml(currentDeal) +
+        buildContactHtml(currentDeal);
 
       // Right panel — 做功课内容
       const hasMatch = currentDeal.matchScore !== null && currentDeal.matchScore !== undefined;

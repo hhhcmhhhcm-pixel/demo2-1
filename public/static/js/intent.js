@@ -134,6 +134,30 @@
             '<div class="p-2.5 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">投资区域</p><p class="text-xs font-semibold text-gray-800">' + profile.region + '</p></div>' +
           '</div>';
 
+        // 投资人联系方式
+        var isAccepted = req.response === 'accepted';
+        var contactName = profile.contactName || (req.fromName ? req.fromName.charAt(0) + '先生' : '张先生');
+        var _ph = (req.fromName || 'inv').split('').reduce(function(a, c) { return ((a << 5) - a + c.charCodeAt(0)) | 0; }, 0);
+        var contactPhone = profile.contactPhone || '138' + String(Math.abs(_ph)).slice(0, 8).padEnd(8, '0');
+        var contactWechat = profile.contactWechat || 'wx_' + (req.fromName || 'investor').replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '').toLowerCase();
+        var investorContactHtml =
+          '<div class="mb-3">' +
+            '<h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-address-book mr-1.5 text-blue-500"></i>投资人联系方式</h4>' +
+            (isAccepted
+              ? '<div class="grid grid-cols-3 gap-2">' +
+                  '<div class="p-2 rounded-lg bg-blue-50 border border-blue-100"><p class="text-[11px] text-gray-400">联系人</p><p class="text-xs font-semibold text-gray-800">' + contactName + '</p></div>' +
+                  '<div class="p-2 rounded-lg bg-blue-50 border border-blue-100"><p class="text-[11px] text-gray-400">联系电话</p><p class="text-xs font-semibold text-gray-800">' + contactPhone + '</p></div>' +
+                  '<div class="p-2 rounded-lg bg-blue-50 border border-blue-100"><p class="text-[11px] text-gray-400">微信号</p><p class="text-xs font-semibold text-gray-800">' + contactWechat + '</p></div>' +
+                '</div>'
+              : '<div class="grid grid-cols-3 gap-2">' +
+                  '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">联系人</p><p class="text-xs font-semibold text-gray-800">' + contactName + '</p></div>' +
+                  '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">联系电话</p><p class="text-xs font-semibold text-gray-400">***********</p></div>' +
+                  '<div class="p-2 rounded-lg bg-gray-50 border border-gray-100"><p class="text-[11px] text-gray-400">微信号</p><p class="text-xs font-semibold text-gray-400">***********</p></div>' +
+                '</div>' +
+                '<p class="text-[11px] text-amber-600 mt-1.5"><i class="fas fa-lock mr-1"></i>当前未通过意向申请，请通过意向申请后再查看投资人联系方式</p>'
+            ) +
+          '</div>';
+
         // 意向详情
         var intentDetailHtml =
           '<div class="mb-3">' +
@@ -181,6 +205,7 @@
             '<div class="border-t border-gray-100 pt-3">' +
               '<h4 class="text-xs font-bold text-gray-700 mb-2"><i class="fas fa-user-tie mr-1.5 text-amber-500"></i>投资方信息</h4>' +
               investorInfoHtml +
+              investorContactHtml +
               intentDetailHtml +
               actionHtml +
             '</div>' +
