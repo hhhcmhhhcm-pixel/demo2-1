@@ -723,6 +723,7 @@
 
       var versions = getMemoVersionsDesc(memo);
       var perms = getMemoActionPermissions(memo);
+      var canCompareVersions = versions.length > 1;
       history.innerHTML = versions.map(function(v) {
         var isCurrent = v.version === memo.currentVersion;
         var isDeprecated = !isCurrent && memo.currentVersion > v.version;
@@ -763,14 +764,14 @@
           '<p class="text-[11px] text-gray-400 mt-1">投资方确认：' + escapeMemoText(investorConfirm) + '</p>' +
           '<p class="text-[11px] text-gray-400 mt-1">融资方确认：' + escapeMemoText(financerConfirm) + '</p>' +
           '<div class="mt-1.5 flex items-center gap-2">' +
-            '<button onclick="updateMemoDiffSelection(&quot;A&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本A</button>' +
-            '<button onclick="updateMemoDiffSelection(&quot;B&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本B</button>' +
+            (canCompareVersions ? '<button onclick="updateMemoDiffSelection(&quot;A&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本A</button>' : '') +
+            (canCompareVersions ? '<button onclick="updateMemoDiffSelection(&quot;B&quot;, &quot;' + v.version + '&quot;)" class="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-white">设为版本B</button>' : '') +
             (perms.canCreateRevision ? ('<button onclick="createMemoRevisionFromVersion(' + v.version + ')" class="px-2 py-1 text-[11px] rounded border border-cyan-200 text-cyan-700 hover:bg-cyan-50">基于此版本新建草稿</button>') : '') +
           '</div>' +
         '</div>';
       }).join('');
 
-      var canShowDiff = versions.length > 1;
+      var canShowDiff = canCompareVersions;
       setMemoDiffVisible(canShowDiff);
       if (!canShowDiff) {
         renderMemoDiffSelectors(state, null);
