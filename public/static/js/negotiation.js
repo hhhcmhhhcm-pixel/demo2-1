@@ -717,7 +717,8 @@
         history.innerHTML = '<p class="text-sm text-gray-400">请选择一条备忘录查看版本历史。</p>';
         setMemoDiffVisible(false);
         renderMemoDiffSelectors(state, null);
-        renderMemoDiff(null, null);
+        var emptyDiffBox = document.getElementById('memoDiffBox');
+        if (emptyDiffBox) emptyDiffBox.innerHTML = '';
         return;
       }
 
@@ -775,7 +776,8 @@
       setMemoDiffVisible(canShowDiff);
       if (!canShowDiff) {
         renderMemoDiffSelectors(state, null);
-        renderMemoDiff(null, null);
+        var singleVersionDiffBox = document.getElementById('memoDiffBox');
+        if (singleVersionDiffBox) singleVersionDiffBox.innerHTML = '';
         return;
       }
 
@@ -1534,7 +1536,7 @@
                   '<span id="memoDiffToggleLabel">收起</span>' +
                   '<i id="memoDiffChevron" class="fas fa-chevron-up transition-transform"></i>' +
                 '</div>' +
-              '</div>' +
+              '</summary>' +
               '<div class="mt-2">' +
                 '<div class="flex items-center gap-1.5 text-[11px] mb-2">' +
                   '<select id="memoDiffVersionA" class="px-2 py-1 border border-gray-200 rounded bg-white" onchange="updateMemoDiffSelection(&quot;A&quot;, this.value)"></select>' +
