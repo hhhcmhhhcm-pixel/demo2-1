@@ -447,6 +447,7 @@
       return {
         topic: (document.getElementById('memoTopic')?.value || '').trim(),
         agreedContent: (document.getElementById('memoAgreedContent')?.value || '').trim(),
+        consensus: (document.getElementById('memoConsensus')?.value || '').trim(),
         summaryBody: (document.getElementById('memoSummaryBody')?.value || '').trim(),
         evidenceAnchors: normalizeMemoEvidenceAnchors(state?.memoEditor?.evidenceDraft || [])
       };
@@ -456,10 +457,17 @@
       var source = data || {};
       var topic = document.getElementById('memoTopic');
       var agreedContent = document.getElementById('memoAgreedContent');
+      var consensus = document.getElementById('memoConsensus');
       var summaryBody = document.getElementById('memoSummaryBody');
       if (topic) topic.value = source.topic || '';
       if (agreedContent) agreedContent.value = source.agreedContent || '';
+      if (consensus) consensus.value = source.consensus || '';
       if (summaryBody) summaryBody.value = source.summaryBody || '';
+      var summarySection = document.getElementById('memoSummarySection');
+      if (summarySection) {
+        var hasSummary = !!(source.summaryBody && source.summaryBody.trim());
+        summarySection.classList.toggle('hidden', !hasSummary);
+      }
       var state = ensureNegotiationState();
       if (state) {
         ensureMemoEditorState(state);
@@ -732,12 +740,14 @@
         showToast('warning', '暂无可识别文本', '请上传 txt/md/csv/json 等文本类文件');
         return;
       }
+      var summarySection = document.getElementById('memoSummarySection');
+      if (summarySection) summarySection.classList.remove('hidden');
       var summaryBody = document.getElementById('memoSummaryBody');
       if (summaryBody) {
         var existing = String(summaryBody.value || '').trim();
         summaryBody.value = existing ? (existing + '\n\n' + summary) : summary;
       }
-      showToast('success', 'AI识别完成', '内容已写入摘要正文');
+      showToast('success', 'AI识别完成', '内容已写入文件摘要');
     }
 
     function setMemoDiffDefaults(state, memo) {
@@ -825,8 +835,9 @@
       }
 
       var fields = [
-        { key: 'agreedContent', label: '达成内容', formatter: function(v) { return v || '无'; } },
-        { key: 'summaryBody', label: '摘要正文', formatter: function(v) { return v || '无'; } }
+        { key: 'agreedContent', label: '沟通纪要', formatter: function(v) { return v || '无'; } },
+        { key: 'consensus', label: '沟通共识', formatter: function(v) { return v || '无'; } },
+        { key: 'summaryBody', label: '文件摘要', formatter: function(v) { return v || '无'; } }
       ];
 
       box.innerHTML = fields.map(function(field) {
@@ -1017,7 +1028,7 @@
       state.memoEditor.dismissNewRecord = false;
       setMemoLastPrimaryAction('new');
       setMemoFormData({});
-      updateMemoEditorHint('当前为新建模式。必填：议题。');
+      updateMemoEditorHint('当前为新建模式。必填：沟通主题。');
       saveNegotiationState();
       renderMemoTab();
     }
@@ -1114,6 +1125,7 @@
       [
         'memoTopic',
         'memoAgreedContent',
+        'memoConsensus',
         'memoSummaryBody'
       ].forEach(function(id) {
         var el = document.getElementById(id);
@@ -1244,7 +1256,7 @@
       } else if (selectedMemo && selectedMemo.status === 'pending_confirmation' && perms.roleConfirmed) {
         updateMemoEditorHint('当前版本已完成本方确认（' + confirmCount + '/2），等待对方确认后生效。');
       } else if (!selectedMemo) {
-        updateMemoEditorHint('当前为新建模式。必填：议题。');
+        updateMemoEditorHint('当前为新建模式。必填：沟通主题。');
       }
     }
 
@@ -1627,16 +1639,16 @@
         return '' +
           '<div class="mt-3 space-y-3">' +
             '<div>' +
-              '<label class="block text-xs text-gray-500 mb-1">议题（必填）</label>' +
+              '<label class="block text-xs text-gray-500 mb-1">沟通主题（必填）</label>' +
               '<input id="memoTopic" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="例如：分成比例上限确认">' +
             '</div>' +
             '<div>' +
-              '<label class="block text-xs text-gray-500 mb-1">达成内容（选填）</label>' +
-              '<textarea id="memoAgreedContent" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="记录双方已达成的一致内容"></textarea>' +
+              '<label class="block text-xs text-gray-500 mb-1">沟通纪要（选填）</label>' +
+              '<textarea id="memoAgreedContent" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="记录本次沟通的要点内容"></textarea>' +
             '</div>' +
             '<div>' +
-              '<label class="block text-xs text-gray-500 mb-1">摘要正文（选填）</label>' +
-              '<textarea id="memoSummaryBody" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="补充摘要或对外确认口径"></textarea>' +
+              '<label class="block text-xs text-gray-500 mb-1">沟通共识（选填）</label>' +
+              '<textarea id="memoConsensus" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="记录双方已达成的一致意见"></textarea>' +
             '</div>' +
             '<div class="border border-gray-100 rounded-lg p-3 bg-gray-50/60">' +
               '<div class="flex items-center justify-between mb-2">' +
@@ -1651,6 +1663,10 @@
               '<div id="memoEvidenceList" class="space-y-2">' +
                 '<p class="text-xs text-gray-400">暂无备忘录文件</p>' +
               '</div>' +
+            '</div>' +
+            '<div id="memoSummarySection" class="hidden">' +
+              '<label class="block text-xs text-gray-500 mb-1">文件摘要（选填）</label>' +
+              '<textarea id="memoSummaryBody" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="补充摘要或对外确认口径"></textarea>' +
             '</div>' +
           '</div>';
       }
@@ -1677,22 +1693,32 @@
               '</div>';
             }).join('')
           : '<p class="text-xs text-gray-400">暂无备忘录文件</p>';
+        var consensusText = (version && version.consensus) ? escapeMemoText(version.consensus) : '';
+        var hasSummary = !!(version && version.summaryBody && version.summaryBody.trim());
         return '' +
           '<div class="mt-3 space-y-3">' +
             '<div>' +
-              '<p class="text-xs text-gray-500 mb-1">达成内容</p>' +
+              '<p class="text-xs text-gray-500 mb-1">沟通纪要</p>' +
               '<pre class="whitespace-pre-wrap text-sm text-gray-700 p-3 rounded-lg border border-gray-100 bg-gray-50">' + agreed + '</pre>' +
             '</div>' +
-            '<div>' +
-              '<p class="text-xs text-gray-500 mb-1">摘要正文</p>' +
-              '<pre class="whitespace-pre-wrap text-sm text-gray-700 p-3 rounded-lg border border-gray-100 bg-gray-50">' + summary + '</pre>' +
-            '</div>' +
+            (consensusText
+              ? '<div>' +
+                  '<p class="text-xs text-gray-500 mb-1">沟通共识</p>' +
+                  '<pre class="whitespace-pre-wrap text-sm text-gray-700 p-3 rounded-lg border border-gray-100 bg-gray-50">' + consensusText + '</pre>' +
+                '</div>'
+              : '') +
             '<div class="border border-gray-100 rounded-lg p-3 bg-gray-50/60">' +
               '<details>' +
                 '<summary class="cursor-pointer text-xs font-semibold text-gray-600">备忘录文件（' + evidences.length + '）</summary>' +
                 '<div class="space-y-2 mt-2">' + evidenceHtml + '</div>' +
               '</details>' +
             '</div>' +
+            (hasSummary
+              ? '<div>' +
+                  '<p class="text-xs text-gray-500 mb-1">文件摘要</p>' +
+                  '<pre class="whitespace-pre-wrap text-sm text-gray-700 p-3 rounded-lg border border-gray-100 bg-gray-50">' + summary + '</pre>' +
+                '</div>'
+              : '') +
           '</div>';
       }
 
@@ -1785,7 +1811,7 @@
             '<div class="p-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="selectMemoForEdit(\'' + memo.id + '\')">' +
               '<div class="flex items-center justify-between gap-2">' +
                 '<div class="min-w-0">' +
-                  '<p class="text-sm font-semibold text-gray-800 truncate">议题：' + escapeMemoText(topicText) + '</p>' +
+                  '<p class="text-sm font-semibold text-gray-800 truncate">主题：' + escapeMemoText(topicText) + '</p>' +
                   '<p class="text-[11px] text-gray-500 mt-0.5 truncate">具体内容：' + escapeMemoText(detailText) + '</p>' +
                 '</div>' +
                 '<div class="flex items-center gap-1.5 shrink-0">' +
@@ -1852,7 +1878,7 @@
 
       if (!selectedMemo) {
         setMemoFormData({});
-        updateMemoEditorHint('当前为新建模式。必填：议题。');
+        updateMemoEditorHint('当前为新建模式。必填：沟通主题。');
         renderMemoActionBar(state, null);
         renderMemoVersionHistory(state, null);
         return;
@@ -1868,7 +1894,7 @@
 
     function validateMemoCoreFields(data, targetStatus) {
       if (!data.topic) {
-        showToast('warning', '请补充必填字段', '至少填写「议题」');
+        showToast('warning', '请补充必填字段', '至少填写「沟通主题」');
         return false;
       }
       return true;
@@ -1935,6 +1961,7 @@
           role: currentPerspective || 'investor',
           topic: payload.topic,
           agreedContent: payload.agreedContent,
+          consensus: payload.consensus,
           summaryBody: payload.summaryBody,
           evidenceAnchors: normalizeMemoEvidenceAnchors(payload.evidenceAnchors),
           confirmMeta: buildMemoConfirmMetaForTargetStatus(targetStatus, now),
@@ -1947,6 +1974,7 @@
         currentVersion.role = currentPerspective || 'investor';
         currentVersion.topic = payload.topic;
         currentVersion.agreedContent = payload.agreedContent;
+        currentVersion.consensus = payload.consensus;
         currentVersion.summaryBody = payload.summaryBody;
         currentVersion.evidenceAnchors = normalizeMemoEvidenceAnchors(payload.evidenceAnchors);
         currentVersion.confirmMeta = buildMemoConfirmMetaForTargetStatus(targetStatus, now);
@@ -2037,6 +2065,7 @@
         role: currentPerspective || 'investor',
         topic: baseVersion.topic || '',
         agreedContent: baseVersion.agreedContent || '',
+        consensus: baseVersion.consensus || '',
         summaryBody: baseVersion.summaryBody || '',
         evidenceAnchors: normalizeMemoEvidenceAnchors(baseVersion.evidenceAnchors),
         revisedFromVersion: baseVersion.version,
